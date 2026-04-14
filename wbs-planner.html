@@ -1228,7 +1228,7 @@ let jiraUsers = []; // 取得した JIRA ユーザー一覧（セッション中
 
 async function fetchJiraAssignableUsers() {
   if (!JC.projectKey) throw new Error('プロジェクトキーが未設定です');
-  const data = await jiraApi(`/user/assignable/search?projectKeys=${encodeURIComponent(JC.projectKey)}&maxResults=200`);
+  const data = await jiraApi(`/user/assignable/search?project=${encodeURIComponent(JC.projectKey)}&maxResults=200`);
   return Array.isArray(data) ? data : [];
 }
 
