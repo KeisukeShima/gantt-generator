@@ -355,6 +355,7 @@ function runSchedule() {
         phaseType:    phase.type,
         totalDays:    phase.days,
         phaseIdx:     pIdx,
+        wbsNo:        `${iIdx+1}.${pIdx+1}`,
         predId:       pIdx > 0 ? `${iIdx}-${pIdx-1}` : null,
         priority:     remaining,
         isBackground: !!phase.background,
