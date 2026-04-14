@@ -18,6 +18,7 @@
 | FR-1-1 | プロジェクト名・開始日・リリース日を設定できる |
 | FR-1-2 | リリース評価期間を **日数 / 週数 / 月数** のいずれかで指定できる |
 | FR-1-3 | 休日として **祝日（国指定）** と **会社指定の休業日** を個別に登録・管理できる |
+| FR-1-4 | JIRA Epic キーをプロジェクト単位で設定できる（例: `PROJ-1`）。空欄可。 |
 
 **FR-1-2 補足：**
 
@@ -48,6 +49,7 @@
 | FR-2-4 | フェーズに工数（営業日数）を設定できる |
 | FR-2-5 | フェーズに「バックグラウンド（工数消費なし）」フラグを付けられる |
 | FR-2-6 | フェーズに固定開始日を設定できる |
+| FR-2-7 | アイテムに WBS 番号（`1`, `2`, `3`…）、フェーズに枝番（`1.1`, `1.2`…）を自動付番する。番号は config に保存せずレンダリング時に動的計算する。 |
 
 ---
 
@@ -60,6 +62,7 @@
 | FR-3-3 | フェーズに「許可担当者（allowedPeople）」を指定できる |
 | FR-3-4 | `requireAll` フラグで複数担当者の同時着手を要求できる |
 | FR-3-5 | フェーズタイプ未指定の場合、担当可能な人を自動割り付ける |
+| FR-3-6 | 担当者に JIRA ユーザー名（メールアドレスまたはユーザー名）を設定できる。空欄時は `name` を代用する。 |
 
 ---
 
@@ -85,6 +88,7 @@
 | FR-5-4 | 凡例を表示する |
 | FR-5-5 | 警告（リリース評価超過・担当者未割り当て等）をバナー表示する |
 | FR-5-6 | ガントチャートの時間軸表示単位を **日 / 週 / 月** から選択できる |
+| FR-5-7 | ガントチャート行ラベルおよびサマリーテーブルに WBS 番号（`1`, `1.1`）を表示する |
 
 **FR-5-6 補足（表示単位ごとの挙動）：**
 
@@ -103,8 +107,32 @@
 | ID | 要件 |
 |----|------|
 | FR-6-1 | 現在の設定を埋め込んだスタンドアロン HTML をエクスポートできる |
-| FR-6-2 | ガントチャート部分を PNG としてダウンロードできる |
+| FR-6-2 | ガントチャートとスケジュールサマリーを PNG としてダウンロードできる |
 | FR-6-3 | 設定を JSON ファイルとして保存・読み込みできる |
+| FR-6-4 | JIRA 課題インポート用の CSV をエクスポートできる（Task / Sub-task 階層、BOM 付き UTF-8） |
+
+**FR-6-4 補足 — JIRA CSV フォーマット:**
+
+アイテム = Task、フェーズ = Sub-task として出力する。行の並びは Task → 配下 Sub-task のインターリーブ順。
+
+| 列名 | Task（アイテム） | Sub-task（フェーズ） |
+| ---- | ---- | ---- |
+| `Issue Type` | `Task` | `Sub-task` |
+| `Summary` | `1 コア機能A` | `1.1 要件定義 — コア機能A` |
+| `Epic Link` | epicKey（空欄可） | 空 |
+| `Parent` | 空 | 親 Task の Summary と一致 |
+| `Assignee` | 最初のフェーズ担当者の jiraUser | 当該フェーズ担当者の jiraUser |
+| `Start Date` | アイテム開始日（YYYY-MM-DD） | フェーズ開始日 |
+| `Due Date` | アイテム終了日（YYYY-MM-DD） | フェーズ終了日 |
+| `Story Points` | 全フェーズ合計工数（日数） | フェーズ工数（日数） |
+| `Description` | `カテゴリ: XX\nメモ: YY` | `担当チーム: XX\n稼働日数: N日` |
+| `Labels` | アイテムのカテゴリ | フェーズタイプのチーム名 |
+
+特殊ケース：
+
+- `background: true` → Assignee 空、Description に `（バックグラウンドタスク）` 付記
+- `requireAll: true` → Assignee に担当者全員をカンマ区切りで列挙（JIRA 側で要確認）
+- `epicKey` 未設定 → `confirm()` で続行確認後、Epic Link 空のまま出力
 
 ---
 
@@ -149,8 +177,7 @@ gantt-generator.html（単一ファイル）
 │   └── スケジュールサマリー表
 │
 └── Footer ボタン
-    ├── [HTML出力]  [PNG出力]
-    └── [JSON保存]  [JSON読込]
+    └── [HTML出力]  [PNG出力]  [JIRA CSV]  [JSON保存]  [JSON読込]
 ```
 
 ### データスキーマ（JSON）
@@ -186,7 +213,8 @@ gantt-generator.html（単一ファイル）
       "phases": ["要件定義", "設計開発"],   // 担当可能フェーズタイプ
       "availableFrom": "YYYY-MM-DD | null",
       "utilization": 1.0,                  // 稼働率 0.0〜1.0
-      "note": "string"
+      "note": "string",
+      "jiraUser": "string"                 // JIRA ユーザー名 or メール。空欄時は name を使用
     }
   ],
 
@@ -208,6 +236,9 @@ gantt-generator.html（単一ファイル）
       ]
     }
   ],
+
+  // JIRA 連携（FR-1-4）
+  "epicKey": "PROJ-1",                     // JIRA Epic キー。空欄可
 
   // リリース評価フェーズ表示設定
   "evalPhase": { "name": "リリース評価", "color": "#8B5CF6" }
@@ -245,8 +276,9 @@ gantt-generator.html（単一ファイル）
 | 形式 | 実装方法 |
 |------|---------|
 | **HTML** | 現在の config を JSON シリアライズして `<script>` に埋め込み、スタンドアロン閲覧 HTML を Blob でダウンロード |
-| **PNG** | `html2canvas`（CDN から遅延ロード）でガントチャートカード要素をキャプチャし `canvas.toBlob()` でダウンロード |
+| **PNG** | `html2canvas`（CDN から遅延ロード）で `#export-area`（ガントチャート + サマリー）をキャプチャし `canvas.toBlob()` でダウンロード |
 | **JSON** | config を `JSON.stringify` して Blob ダウンロード。読込は `FileReader` で parse して反映 |
+| **JIRA CSV** | `runSchedule()` の結果から Task / Sub-task 行を生成し、BOM 付き UTF-8 CSV を Blob でダウンロード |
 
 ### 祝日データ戦略
 
@@ -270,3 +302,4 @@ gantt-generator.html（単一ファイル）
 | **Phase 2** | JSON 保存・読込、HTML エクスポート |
 | **Phase 3** | PNG エクスポート（html2canvas 遅延ロード） |
 | **Phase 4** | 祝日自動取得ボタン、localStorage 永続化 |
+| **Phase 5** | WBS 番号付番、JIRA CSV エクスポート（FR-1-4, FR-2-7, FR-3-6, FR-5-7, FR-6-4） |
