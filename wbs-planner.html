@@ -96,7 +96,9 @@ tbody tr.erow td{background:#FAF5FF}
 .jira-log-line.err{color:#991B1B}
 .jira-map-row{margin-bottom:10px}
 .jira-map-row .jm-name{display:block;font-size:.84rem;font-weight:600;color:#111827;margin-bottom:3px}
-.jira-map-row select{width:100%;padding:5px 8px;border:1px solid #D1D5DB;border-radius:6px;font-size:.8rem;font-family:inherit}
+.jira-map-row .jm-search{width:100%;padding:5px 8px;border:1px solid #D1D5DB;border-radius:6px 6px 0 0;border-bottom:none;font-size:.8rem;font-family:inherit;box-sizing:border-box}
+.jira-map-row .jm-search:focus{outline:none;border-color:#6366F1}
+.jira-map-row select{width:100%;padding:5px 8px;border:1px solid #D1D5DB;border-radius:0 0 6px 6px;font-size:.8rem;font-family:inherit}
 
 /* ── Warn / Hint ── */
 .warn-box{display:flex;align-items:flex-start;gap:10px;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:11px 15px;font-size:.82rem;color:#991B1B;line-height:1.7}
@@ -1411,13 +1413,25 @@ function renderJiraPeopleMap() {
   el.innerHTML = C.people.map((p, i) => `
     <div class="jira-map-row">
       <span class="jm-name">${esc(p.name)}</span>
+      <input type="text" class="jm-search" data-si="${i}" placeholder="名前またはメールで絞り込み…">
       <select data-pm="${i}">
         <option value="">-- 未マッピング --</option>
         ${jiraUsers.map(u => `<option value="${esc(u.accountId)}" ${p.jiraUser===u.accountId?'selected':''}>${esc(u.displayName)}${u.emailAddress?' ('+esc(u.emailAddress)+')':''}</option>`).join('')}
       </select>
     </div>
   `).join('');
-  el.querySelectorAll('[data-pm]').forEach(sel => sel.addEventListener('change', e => {
+
+  el.querySelectorAll('.jm-search').forEach(input => {
+    const sel = el.querySelector(`select[data-pm="${input.dataset.si}"]`);
+    input.addEventListener('input', () => {
+      const q = input.value.toLowerCase();
+      Array.from(sel.options).forEach(opt => {
+        opt.hidden = opt.value !== '' && !opt.text.toLowerCase().includes(q);
+      });
+    });
+  });
+
+  el.querySelectorAll('select[data-pm]').forEach(sel => sel.addEventListener('change', e => {
     C.people[parseInt(e.target.dataset.pm)].jiraUser = e.target.value;
     saveConfig();
   }));
