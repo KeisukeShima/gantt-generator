@@ -1192,7 +1192,7 @@ function generateJiraCSV() {
     const ends   = phaseTasks.filter(t => t.endDate).map(t => t.endDate);
     const taskStart  = starts.length ? fmt(starts.reduce((a,b) => a < b ? a : b)) : '';
     const taskEnd    = ends.length   ? fmt(ends.reduce((a,b)   => a > b ? a : b)) : '';
-    const totalDays  = phaseTasks.reduce((s, t) => s + t.totalDays, 0);
+    const totalDays  = phaseTasks.filter(t => !t.isBackground).reduce((s, t) => s + t.totalDays, 0);
     const firstPhase = phaseTasks.find(t => !t.isBackground && t.assignedPeople.length > 0);
     const taskAssignee = firstPhase ? jiraUser(firstPhase.assignedPeople[0]) : '';
     const taskDesc   = [
