@@ -761,6 +761,7 @@ function initProjectForm() {
   document.getElementById('f-eval-val').value = C.evalPeriod.value;
   document.getElementById('f-eval-unit').value= C.evalPeriod.unit;
   document.querySelector(`input[name="ganttUnit"][value="${C.ganttUnit}"]`).checked = true;
+  document.getElementById('f-epic-key').value = C.epicKey || '';
 }
 document.getElementById('f-name').addEventListener('input', e => { C.projectName = e.target.value; render(); });
 document.getElementById('f-start').addEventListener('change', e => { C.startDate = e.target.value; render(); });
@@ -769,6 +770,7 @@ document.getElementById('f-eval-val').addEventListener('input', e => { C.evalPer
 document.getElementById('f-eval-unit').addEventListener('change', e => { C.evalPeriod.unit = e.target.value; render(); });
 document.querySelectorAll('input[name="ganttUnit"]').forEach(r =>
   r.addEventListener('change', e => { if(e.target.checked){ C.ganttUnit = e.target.value; render(); } }));
+document.getElementById('f-epic-key').addEventListener('input', e => { C.epicKey = e.target.value; saveConfig(); });
 
 // ═══════════════════════════════════════════════════════════
 //  EDITOR — HOLIDAYS
