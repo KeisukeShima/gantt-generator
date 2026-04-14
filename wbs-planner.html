@@ -1219,6 +1219,14 @@ function buildViewerHTML() {
 }
 
 // ── JIRA API ──
+let jiraUsers = []; // 取得した JIRA ユーザー一覧（セッション中のみ保持）
+
+async function fetchJiraAssignableUsers() {
+  if (!JC.projectKey) throw new Error('プロジェクトキーが未設定です');
+  const data = await jiraApi(`/user/assignable/search?projectKeys=${encodeURIComponent(JC.projectKey)}&maxResults=200`);
+  return Array.isArray(data) ? data : [];
+}
+
 async function jiraApi(path, opts = {}) {
   if (!JC.siteUrl || !JC.email || !JC.apiToken) throw new Error('接続設定が未入力です');
   const base = JC.siteUrl.replace(/\/$/, '');
@@ -1250,6 +1258,28 @@ function initJiraTab() {
   if (typeof renderJiraPeopleMap === 'function') renderJiraPeopleMap();
 }
 
+function renderJiraPeopleMap() {
+  const el = document.getElementById('jira-people-map');
+  if (!el) return;
+  if (!C.people.length) {
+    el.innerHTML = '<p style="font-size:.82rem;color:#9CA3AF">担当者タブで担当者を追加してください。</p>';
+    return;
+  }
+  el.innerHTML = C.people.map((p, i) => `
+    <div class="jira-map-row">
+      <span class="jm-name">${esc(p.name)}</span>
+      <select data-pm="${i}">
+        <option value="">-- 未マッピング --</option>
+        ${jiraUsers.map(u => `<option value="${esc(u.accountId)}" ${p.jiraUser===u.accountId?'selected':''}>${esc(u.displayName)}${u.emailAddress?' ('+esc(u.emailAddress)+')':''}</option>`).join('')}
+      </select>
+    </div>
+  `).join('');
+  el.querySelectorAll('[data-pm]').forEach(sel => sel.addEventListener('change', e => {
+    C.people[parseInt(e.target.dataset.pm)].jiraUser = e.target.value;
+    saveConfig();
+  }));
+}
+
 async function testJiraConnection() {
   const btn = document.getElementById('btn-jira-test');
   const out = document.getElementById('jira-test-result');
@@ -1264,6 +1294,20 @@ async function testJiraConnection() {
 }
 
 document.getElementById('btn-jira-test').addEventListener('click', testJiraConnection);
+
+document.getElementById('btn-jira-users').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-jira-users');
+  btn.textContent = '取得中…'; btn.disabled = true;
+  try {
+    jiraUsers = await fetchJiraAssignableUsers();
+    renderJiraPeopleMap();
+    btn.textContent = `${jiraUsers.length} 名取得 ✓`;
+    setTimeout(() => { btn.textContent = 'JIRA ユーザー取得'; btn.disabled = false; }, 2000);
+  } catch(e) {
+    alert('ユーザー取得に失敗しました: ' + e.message);
+    btn.textContent = 'JIRA ユーザー取得'; btn.disabled = false;
+  }
+});
 
 document.getElementById('j-site').addEventListener('input',  e => { JC.siteUrl    = e.target.value.trim(); saveJiraConfig(); });
 document.getElementById('j-email').addEventListener('input', e => { JC.email      = e.target.value.trim(); saveJiraConfig(); });
