@@ -209,6 +209,11 @@ tbody tr.erow td{background:#FAF5FF}
         <input type="password" id="j-token" placeholder="Atlassian API トークンを入力">
       </div>
       <p style="font-size:.72rem;color:#9CA3AF;margin-bottom:10px">API トークンは Atlassian アカウント設定（Security → API tokens）で発行できます。このブラウザのみに保存されます。</p>
+      <div class="fg">
+        <label>CORS プロキシ URL <span style="font-weight:400;color:#9CA3AF">（任意）</span></label>
+        <input type="text" id="j-proxy" placeholder="http://localhost:8001">
+        <p style="font-size:.72rem;color:#9CA3AF;margin-top:4px">CORS エラーが発生する場合に設定します。<code>python3 scripts/jira-proxy.py</code> を別ターミナルで起動してください。</p>
+      </div>
       <button class="btn btn-secondary" id="btn-jira-test">接続テスト</button>
       <div id="jira-test-result"></div>
 
@@ -330,7 +335,7 @@ const DEFAULT_CONFIG = {
 let C = loadConfig();
 
 // ── JIRA 接続設定（プロジェクト設定 C とは別に保管）──
-const DEFAULT_JIRA_CONFIG = { siteUrl: '', email: '', apiToken: '', projectKey: '' };
+const DEFAULT_JIRA_CONFIG = { siteUrl: '', email: '', apiToken: '', projectKey: '', proxyUrl: '' };
 let JC = loadJiraConfig();
 function loadJiraConfig() {
   try {
@@ -1231,12 +1236,23 @@ async function jiraApi(path, opts = {}) {
   if (!JC.siteUrl || !JC.email || !JC.apiToken) throw new Error('接続設定が未入力です');
   const base = JC.siteUrl.replace(/\/$/, '');
   const auth = btoa(`${JC.email}:${JC.apiToken}`);
-  const res = await fetch(`${base}/rest/api/3${path}`, {
+
+  // CORS プロキシ経由 or 直接リクエスト
+  let url, extraHeaders = {};
+  if (JC.proxyUrl) {
+    url = `${JC.proxyUrl.replace(/\/$/, '')}/rest/api/3${path}`;
+    extraHeaders['X-Jira-Site'] = base; // プロキシが転送先に使う
+  } else {
+    url = `${base}/rest/api/3${path}`;
+  }
+
+  const res = await fetch(url, {
     ...opts,
     headers: {
       'Authorization': `Basic ${auth}`,
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      ...extraHeaders,
       ...(opts.headers || {}),
     },
   });
@@ -1253,6 +1269,7 @@ function initJiraTab() {
   document.getElementById('j-email').value = JC.email;
   document.getElementById('j-token').value = JC.apiToken;
   document.getElementById('j-pkey').value  = JC.projectKey;
+  document.getElementById('j-proxy').value = JC.proxyUrl;
   document.getElementById('f-epic-key').value = C.epicKey || '';
   renderJiraPeopleMap();
 }
@@ -1441,6 +1458,7 @@ document.getElementById('j-site').addEventListener('input',  e => { JC.siteUrl  
 document.getElementById('j-email').addEventListener('input', e => { JC.email      = e.target.value.trim(); saveJiraConfig(); });
 document.getElementById('j-token').addEventListener('input', e => { JC.apiToken   = e.target.value.trim(); saveJiraConfig(); });
 document.getElementById('j-pkey').addEventListener('input',  e => { JC.projectKey = e.target.value.trim().toUpperCase(); saveJiraConfig(); });
+document.getElementById('j-proxy').addEventListener('input', e => { JC.proxyUrl   = e.target.value.trim(); saveJiraConfig(); });
 document.getElementById('f-epic-key').addEventListener('input', e => { C.epicKey  = e.target.value.trim(); saveConfig(); });
 
 // ── PNG エクスポート ──

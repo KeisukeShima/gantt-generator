@@ -196,8 +196,17 @@ gantt
 
 [`wbs-planner.html`](wbs-planner.html) をダウンロードし、ブラウザで開きます。
 
-> **JIRA 連携を使う場合**は `file://` ではなく HTTP サーバーから開いてください。  
-> `python3 -m http.server` でカレントディレクトリを配信し、`http://localhost:8000/wbs-planner.html` にアクセスします。
+> **JIRA 連携を使う場合**は、以下の2コマンドを別々のターミナルで起動します。
+>
+> ```bash
+> # ターミナル 1: HTML ファイルを配信
+> python3 -m http.server 8000
+>
+> # ターミナル 2: JIRA CORS プロキシを起動
+> python3 scripts/jira-proxy.py
+> ```
+>
+> ブラウザで `http://localhost:8000/wbs-planner.html` を開き、JIRA タブの「CORS プロキシ URL」に `http://localhost:8001` を設定してください。
 
 ### 2. プロジェクト設定を入力する
 
@@ -221,10 +230,11 @@ WBS 番号（`1`, `1.1` など）は自動で付番されます。
 「**JIRA**」タブを開き、以下の順で操作します。
 
 1. **接続設定**にサイト URL・メールアドレス・API トークン・プロジェクトキーを入力
-2. 「接続テスト」で認証を確認
-3. 「JIRA ユーザー取得」でプロジェクトの担当者一覧を取得し、各担当者と JIRA アカウントをマッピング
-4. 必要なら Epic キーを入力
-5. 「**JIRA に登録**」で Task / Sub-task を一括作成
+2. 「CORS プロキシ URL」に `http://localhost:8001` を入力（プロキシ起動済みの場合）
+3. 「接続テスト」で認証を確認
+4. 「JIRA ユーザー取得」でプロジェクトの担当者一覧を取得し、各担当者と JIRA アカウントをマッピング
+5. 必要なら Epic キーを入力
+6. 「**JIRA に登録**」で Task / Sub-task を一括作成
 
 > API トークンは [Atlassian アカウント設定](https://id.atlassian.com/manage-profile/security/api-tokens) の「Security → API tokens」から発行できます。  
 > 設定は `localStorage` に自動保存されます。認証情報（API トークン）は JSON エクスポートに含まれません。  
