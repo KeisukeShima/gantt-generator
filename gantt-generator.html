@@ -618,7 +618,7 @@ function renderGantt(scheduled) {
 
     if (row.kind === 'hdr') {
       // Item header row (label only, no bar)
-      g += `<text x="8" y="${ry+ROW_H/2+4}" fill="#374151" font-size="10.5" font-weight="700" font-family="sans-serif">${esc(row.iIdx+1)} ${esc(trunc(row.item.name,22))}</text>`;
+      g += `<text x="8" y="${ry+ROW_H/2+4}" fill="#374151" font-size="10.5" font-weight="700" font-family="sans-serif">${row.iIdx+1} ${esc(trunc(row.item.name,22))}</text>`;
       if (row.item.category) g += `<rect x="${LW-75}" y="${ry+6}" width="70" height="16" rx="8" fill="#F3F4F6"/>
         <text x="${LW-40}" y="${ry+17}" text-anchor="middle" fill="#6B7280" font-size="9" font-family="sans-serif">${esc(trunc(row.item.category,10))}</text>`;
       g += `<line x1="0" y1="${ry}" x2="${totalW}" y2="${ry}" stroke="#E5E7EB" stroke-width=".8"/>`;
