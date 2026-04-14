@@ -1,0 +1,112 @@
+{
+  "projectName": "サンプルプロジェクト v1.0",
+  "startDate": "2026-04-20",
+  "releaseDate": "2026-07-15",
+  "evalPeriod": { "value": 4, "unit": "weeks" },
+  "ganttUnit": "weeks",
+  "holidays": {
+    "national": [
+      "2026-04-29",
+      "2026-05-03",
+      "2026-05-04",
+      "2026-05-05",
+      "2026-05-06",
+      "2026-07-20"
+    ],
+    "company": []
+  },
+  "phaseTypes": [
+    { "name": "要件定義",       "team": "企画",  "color": "#3B82F6" },
+    { "name": "テストケース作成", "team": "企画",  "color": "#F59E0B" },
+    { "name": "設計開発",       "team": "開発",  "color": "#10B981" },
+    { "name": "部品調達",       "team": "開発",  "color": "#EC4899" }
+  ],
+  "people": [
+    { "name": "Alice", "team": "企画", "phases": ["要件定義", "テストケース作成"], "availableFrom": null,         "utilization": 1.0, "note": "" },
+    { "name": "Bob",   "team": "企画", "phases": ["要件定義", "テストケース作成"], "availableFrom": null,         "utilization": 1.0, "note": "" },
+    { "name": "Carol", "team": "開発", "phases": ["設計開発"],                    "availableFrom": null,         "utilization": 1.0, "note": "" },
+    { "name": "Dave",  "team": "開発", "phases": ["設計開発"],                    "availableFrom": null,         "utilization": 1.0, "note": "" },
+    { "name": "Eve",   "team": "開発", "phases": ["設計開発"],                    "availableFrom": null,         "utilization": 1.0, "note": "" },
+    { "name": "Frank", "team": "開発", "phases": ["設計開発", "部品調達"],         "availableFrom": null,         "utilization": 0.8, "note": "80%稼働" },
+    { "name": "Grace", "team": "開発", "phases": ["設計開発"],                    "availableFrom": "2026-05-01", "utilization": 1.0, "note": "5月から参画" }
+  ],
+  "items": [
+    {
+      "name": "コア機能A",
+      "category": "コア機能",
+      "note": "メイン機能の開発",
+      "phases": [
+        { "type": "要件定義",       "days": 10 },
+        { "type": "テストケース作成", "days": 3 },
+        { "type": "設計開発",       "days": 20, "allowedPeople": ["Carol"] }
+      ]
+    },
+    {
+      "name": "コア機能B",
+      "category": "コア機能",
+      "note": "",
+      "phases": [
+        { "type": "要件定義",       "days": 3 },
+        { "type": "テストケース作成", "days": 2 },
+        { "type": "設計開発",       "days": 5, "allowedPeople": ["Frank", "Grace"] }
+      ]
+    },
+    {
+      "name": "コア機能C",
+      "category": "コア機能",
+      "note": "",
+      "phases": [
+        { "type": "要件定義",       "days": 3 },
+        { "type": "テストケース作成", "days": 5 },
+        { "type": "設計開発",       "days": 5, "allowedPeople": ["Frank", "Grace"] }
+      ]
+    },
+    {
+      "name": "オプション機能D",
+      "category": "品質向上",
+      "note": "部品の調達待ちあり",
+      "phases": [
+        { "type": "部品調達",       "days": 20, "background": true },
+        { "type": "要件定義",       "days": 3 },
+        { "type": "設計開発",       "days": 10, "allowedPeople": ["Frank", "Grace"] },
+        { "type": "テストケース作成", "days": 2 }
+      ]
+    },
+    {
+      "name": "バグ修正・繰越対応",
+      "category": "品質向上",
+      "note": "",
+      "phases": [
+        { "type": "設計開発", "days": 15, "allowedPeople": ["Frank", "Grace"] }
+      ]
+    },
+    {
+      "name": "機能E（2名同時開発）",
+      "category": "拡張機能",
+      "note": "2名同時着手が必要",
+      "phases": [
+        { "type": "要件定義",       "days": 5 },
+        { "type": "テストケース作成", "days": 3 },
+        { "type": "設計開発",       "days": 20, "allowedPeople": ["Dave", "Eve"], "requireAll": true }
+      ]
+    },
+    {
+      "name": "ライブラリ更新",
+      "category": "その他",
+      "note": "",
+      "phases": [
+        { "type": "設計開発", "days": 5, "allowedPeople": ["Frank", "Grace"] }
+      ]
+    },
+    {
+      "name": "テスト環境整備",
+      "category": "その他",
+      "note": "",
+      "phases": [
+        { "type": "設計開発",       "days": 5, "allowedPeople": ["Frank", "Grace"] },
+        { "type": "テストケース作成", "days": 5 }
+      ]
+    }
+  ],
+  "evalPhase": { "name": "リリース評価", "color": "#8B5CF6" }
+}
