@@ -1270,7 +1270,14 @@ async function jiraApi(path, opts = {}) {
   });
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
-    try { const j = await res.json(); msg = j.errorMessages?.join(', ') || j.message || msg; } catch {}
+    try {
+      const j = await res.json();
+      const parts = [];
+      if (j.errorMessages?.length) parts.push(...j.errorMessages);
+      if (j.errors) parts.push(...Object.entries(j.errors).map(([k, v]) => `${k}: ${v}`));
+      if (j.message) parts.push(j.message);
+      if (parts.length) msg = parts.join(' / ');
+    } catch {}
     throw new Error(msg);
   }
   return res.json();
@@ -1288,7 +1295,14 @@ function initJiraTab() {
 
 function makeADF(text) {
   if (!text) return undefined;
-  return { type: 'doc', version: 1, content: [{ type: 'paragraph', content: [{ type: 'text', text: String(text) }] }] };
+  const lines = String(text).split('\n').filter(l => l.length > 0);
+  if (!lines.length) return undefined;
+  const inlines = [];
+  lines.forEach((line, i) => {
+    if (i > 0) inlines.push({ type: 'hardBreak' });
+    inlines.push({ type: 'text', text: line });
+  });
+  return { type: 'doc', version: 1, content: [{ type: 'paragraph', content: inlines }] };
 }
 
 function getAccountId(personName) {
@@ -1322,6 +1336,7 @@ async function pushToJira() {
     return;
   }
   logEl.innerHTML = '<div class="jira-log" id="jira-log"></div>';
+  logEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   const log = document.getElementById('jira-log');
   const addLog = (text, isErr = false) => {
     const d = document.createElement('div');
@@ -1410,6 +1425,10 @@ async function pushToJira() {
 
   const summary = `登録完了: Task ${taskCount} 件, Sub-task ${subCount} 件${errCount ? `（エラー ${errCount} 件）` : ''}`;
   addLog(summary, errCount > 0);
+  if (taskCount === 0 && errCount > 0) {
+    const firstErr = log.lastChild?.textContent || '';
+    alert(`JIRA への登録に失敗しました。\n\n${firstErr}\n\n詳細はログ欄を確認してください。`);
+  }
   btn.disabled = false; btn.textContent = 'JIRA に登録';
 }
 
