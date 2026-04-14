@@ -329,6 +329,19 @@ const DEFAULT_CONFIG = {
 // ═══════════════════════════════════════════════════════════
 let C = loadConfig();
 
+// ── JIRA 接続設定（プロジェクト設定 C とは別に保管）──
+const DEFAULT_JIRA_CONFIG = { siteUrl: '', email: '', apiToken: '', projectKey: '' };
+let JC = loadJiraConfig();
+function loadJiraConfig() {
+  try {
+    const s = localStorage.getItem('wbs-jira-cfg');
+    return s ? { ...DEFAULT_JIRA_CONFIG, ...JSON.parse(s) } : { ...DEFAULT_JIRA_CONFIG };
+  } catch { return { ...DEFAULT_JIRA_CONFIG }; }
+}
+function saveJiraConfig() {
+  try { localStorage.setItem('wbs-jira-cfg', JSON.stringify(JC)); } catch {}
+}
+
 function loadConfig() {
   try {
     const s = localStorage.getItem('gantt-gen-cfg');
@@ -1205,6 +1218,44 @@ function buildViewerHTML() {
   return lines.join('\n');
 }
 
+// ── JIRA API ──
+async function jiraApi(path, opts = {}) {
+  if (!JC.siteUrl || !JC.email || !JC.apiToken) throw new Error('接続設定が未入力です');
+  const base = JC.siteUrl.replace(/\/$/, '');
+  const auth = btoa(`${JC.email}:${JC.apiToken}`);
+  const res = await fetch(`${base}/rest/api/3${path}`, {
+    ...opts,
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(opts.headers || {}),
+    },
+  });
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try { const j = await res.json(); msg = j.errorMessages?.join(', ') || j.message || msg; } catch {}
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+function initJiraTab() {
+  document.getElementById('j-site').value  = JC.siteUrl;
+  document.getElementById('j-email').value = JC.email;
+  document.getElementById('j-token').value = JC.apiToken;
+  document.getElementById('j-pkey').value  = JC.projectKey;
+  document.getElementById('f-epic-key').value = C.epicKey || '';
+  // renderJiraPeopleMap は Task 5 で定義されるため、存在確認してから呼ぶ
+  if (typeof renderJiraPeopleMap === 'function') renderJiraPeopleMap();
+}
+
+document.getElementById('j-site').addEventListener('input',  e => { JC.siteUrl    = e.target.value.trim(); saveJiraConfig(); });
+document.getElementById('j-email').addEventListener('input', e => { JC.email      = e.target.value.trim(); saveJiraConfig(); });
+document.getElementById('j-token').addEventListener('input', e => { JC.apiToken   = e.target.value.trim(); saveJiraConfig(); });
+document.getElementById('j-pkey').addEventListener('input',  e => { JC.projectKey = e.target.value.trim().toUpperCase(); saveJiraConfig(); });
+document.getElementById('f-epic-key').addEventListener('input', e => { C.epicKey  = e.target.value.trim(); saveConfig(); });
+
 // ── PNG エクスポート ──
 document.getElementById('btn-png').addEventListener('click', async () => {
   const btn = document.getElementById('btn-png');
@@ -1244,6 +1295,7 @@ function initAll() {
   renderPhaseTypesList();
   renderPeopleList();
   renderItemsList();
+  initJiraTab();
 }
 initAll();
 render();
