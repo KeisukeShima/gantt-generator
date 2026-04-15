@@ -1379,30 +1379,49 @@ function renderCustomFields() {
   if (!container) return;
   const fields = JC.customFields || [];
   if (fields.length === 0) { container.innerHTML = ''; return; }
+
+  const selStyle = 'width:100%;padding:7px 9px;border:1px solid #D1D5DB;border-radius:0 0 6px 6px;font-size:.84rem;border-top:none';
+  const searchStyle = 'width:100%;padding:5px 8px;border:1px solid #D1D5DB;border-radius:6px 6px 0 0;font-size:.8rem;font-family:inherit;box-sizing:border-box';
+
   container.innerHTML = fields.map((f, i) => {
     const kind = cfSchemaKind(f.schema);
     let input;
     if (kind === 'option' || kind === 'option_array') {
       const opts = (f.allowedValues || []).map(v =>
-        `<option value="${v.id}" ${f.value === String(v.id) ? 'selected' : ''}>${v.value ?? v.name ?? v.id}</option>`
+        `<option value="${v.id}" ${f.value === String(v.id) ? 'selected' : ''}>${esc(v.value ?? v.name ?? String(v.id))}</option>`
       ).join('');
-      input = `<select class="jcf-inp" data-idx="${i}" style="width:100%;padding:7px 9px;border:1px solid #D1D5DB;border-radius:6px;font-size:.84rem"><option value="">-- 選択 --</option>${opts}</select>`;
+      input = `<input type="text" class="jcf-search" data-idx="${i}" placeholder="絞り込み…" style="${searchStyle}">
+               <select class="jcf-inp" data-idx="${i}" style="${selStyle}"><option value="">-- 選択 --</option>${opts}</select>`;
     } else if (kind === 'user' || kind === 'user_array') {
       const opts = jiraUsers.map(u =>
-        `<option value="${u.accountId}" ${f.value === u.accountId ? 'selected' : ''}>${u.displayName}</option>`
+        `<option value="${esc(u.accountId)}" ${f.value === u.accountId ? 'selected' : ''}>${esc(u.displayName)}${u.emailAddress ? ' (' + esc(u.emailAddress) + ')' : ''}</option>`
       ).join('');
-      input = `<select class="jcf-inp" data-idx="${i}" style="width:100%;padding:7px 9px;border:1px solid #D1D5DB;border-radius:6px;font-size:.84rem"><option value="">-- 選択 --</option>${opts}</select>`;
+      input = `<input type="text" class="jcf-search" data-idx="${i}" placeholder="名前・メールで絞り込み…" style="${searchStyle}">
+               <select class="jcf-inp" data-idx="${i}" style="${selStyle}"><option value="">-- 選択 --</option>${opts}</select>`;
     } else {
-      input = `<input type="text" class="jcf-inp" data-idx="${i}" value="${f.value ?? ''}" placeholder="値を入力" style="width:100%;padding:7px 9px;border:1px solid #D1D5DB;border-radius:6px;font-size:.84rem;box-sizing:border-box">`;
+      input = `<input type="text" class="jcf-inp" data-idx="${i}" value="${esc(f.value ?? '')}" placeholder="値を入力" style="width:100%;padding:7px 9px;border:1px solid #D1D5DB;border-radius:6px;font-size:.84rem;box-sizing:border-box">`;
     }
     return `<div class="fg" style="margin-bottom:8px">
       <label style="font-size:.78rem;color:#374151;font-weight:600;margin-bottom:3px;display:block">
-        ${f.name} <span style="color:#EF4444">*</span>
-        <span style="font-weight:400;color:#9CA3AF;font-size:.7rem">${f.id}</span>
+        ${esc(f.name)} <span style="color:#EF4444">*</span>
+        <span style="font-weight:400;color:#9CA3AF;font-size:.7rem">${esc(f.id)}</span>
       </label>
       ${input}
     </div>`;
   }).join('');
+
+  // 検索フィルター
+  container.querySelectorAll('.jcf-search').forEach(search => {
+    const sel = container.querySelector(`select.jcf-inp[data-idx="${search.dataset.idx}"]`);
+    search.addEventListener('input', () => {
+      const q = search.value.toLowerCase();
+      Array.from(sel.options).forEach(opt => {
+        opt.hidden = opt.value !== '' && !opt.text.toLowerCase().includes(q);
+      });
+    });
+  });
+
+  // 値の保存
   container.querySelectorAll('.jcf-inp').forEach(el => {
     const save = e => { JC.customFields[+e.target.dataset.idx].value = e.target.value || null; saveJiraConfig(); };
     el.addEventListener('change', save);
@@ -1499,6 +1518,29 @@ async function loadFieldsForSelected() {
       const existing = (JC.customFields || []).find(x => x.id === id);
       return { id, name: f.name, schema: f.schema ?? {}, allowedValues: f.allowedValues ?? [], value: existing?.value ?? null };
     });
+
+    // option 型フィールドの選択肢をコンテキスト API で補完（createmeta で取れない場合）
+    await Promise.all(JC.customFields.map(async f => {
+      const kind = cfSchemaKind(f.schema);
+      if (kind !== 'option' && kind !== 'option_array') return;
+      try {
+        // フィールドのコンテキスト ID を取得
+        const ctxResp = await jiraApi(`/field/${encodeURIComponent(f.id)}/context?maxResults=1`);
+        const ctxId = (ctxResp.values ?? [])[0]?.id;
+        if (!ctxId) return;
+        // コンテキストの選択肢をページネーション取得
+        let all = [], startAt = 0;
+        while (true) {
+          const r = await jiraApi(`/field/${encodeURIComponent(f.id)}/context/${ctxId}/option?maxResults=100&startAt=${startAt}`);
+          const page = r.values ?? [];
+          all.push(...page);
+          if (page.length < 100) break;
+          startAt += all.length;
+        }
+        if (all.length > 0) f.allowedValues = all; // createmeta より優先
+      } catch { /* 権限なし等の場合は createmeta の値を使う */ }
+    }));
+
     saveJiraConfig();
     renderCustomFields();
   } catch(e) {
