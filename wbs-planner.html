@@ -1393,11 +1393,15 @@ function renderCustomFields() {
       input = `<input type="text" class="jcf-search" data-idx="${i}" placeholder="絞り込み…" style="${searchStyle}">
                <select class="jcf-inp" data-idx="${i}" style="${selStyle}"><option value="">-- 選択 --</option>${opts}</select>`;
     } else if (kind === 'user' || kind === 'user_array') {
-      const opts = jiraUsers.map(u =>
-        `<option value="${esc(u.accountId)}" ${f.value === u.accountId ? 'selected' : ''}>${esc(u.displayName)}${u.emailAddress ? ' (' + esc(u.emailAddress) + ')' : ''}</option>`
-      ).join('');
-      input = `<input type="text" class="jcf-search" data-idx="${i}" placeholder="名前・メールで絞り込み…" style="${searchStyle}">
-               <select class="jcf-inp" data-idx="${i}" style="${selStyle}"><option value="">-- 選択 --</option>${opts}</select>`;
+      if (jiraUsers.length === 0) {
+        input = `<p style="font-size:.78rem;color:#F59E0B;margin:4px 0">先に「JIRA ユーザー取得」を実行してください。</p>`;
+      } else {
+        const opts = jiraUsers.map(u =>
+          `<option value="${esc(u.accountId)}" ${f.value === u.accountId ? 'selected' : ''}>${esc(u.displayName)}${u.emailAddress ? ' (' + esc(u.emailAddress) + ')' : ''}</option>`
+        ).join('');
+        input = `<input type="text" class="jcf-search" data-idx="${i}" placeholder="名前・メールで絞り込み…" style="${searchStyle}">
+                 <select class="jcf-inp" data-idx="${i}" style="${selStyle}"><option value="">-- 選択 --</option>${opts}</select>`;
+      }
     } else {
       input = `<input type="text" class="jcf-inp" data-idx="${i}" value="${esc(f.value ?? '')}" placeholder="値を入力" style="width:100%;padding:7px 9px;border:1px solid #D1D5DB;border-radius:6px;font-size:.84rem;box-sizing:border-box">`;
     }
@@ -1753,6 +1757,7 @@ document.getElementById('btn-jira-users').addEventListener('click', async () => 
   try {
     jiraUsers = await fetchJiraAssignableUsers(n => { btn.textContent = `取得中… ${n}名`; });
     renderJiraPeopleMap();
+    renderCustomFields(); // user型カスタムフィールドの選択肢も更新
     btn.textContent = `${jiraUsers.length} 名取得 ✓`;
     setTimeout(() => { btn.textContent = 'JIRA ユーザー取得'; btn.disabled = false; }, 2000);
   } catch(e) {
