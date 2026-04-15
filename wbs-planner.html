@@ -155,14 +155,24 @@ tbody tr.erow td{background:#FAF5FF}
         <div class="fg"><label>リリース日</label><input type="date" id="f-release"></div>
       </div>
       <div class="fg">
-        <label>リリース評価期間</label>
-        <div class="fr" style="gap:6px">
-          <input type="number" id="f-eval-val" min="1" max="999" style="flex:1;padding:7px 9px;border:1px solid #D1D5DB;border-radius:6px;font-size:.84rem">
-          <select id="f-eval-unit" style="flex:1.2;padding:7px 9px;border:1px solid #D1D5DB;border-radius:6px;font-size:.84rem">
-            <option value="days">日</option>
-            <option value="weeks">週</option>
-            <option value="months">ヶ月</option>
-          </select>
+        <label>リリース評価ゾーン</label>
+        <label style="display:flex;align-items:center;gap:6px;margin-bottom:8px;cursor:pointer">
+          <input type="checkbox" id="f-eval-show" style="margin:0">
+          <span style="font-size:.84rem;color:#374151">ガントチャートに表示する</span>
+        </label>
+        <div id="eval-zone-detail">
+          <div class="fr" style="gap:6px;margin-bottom:6px">
+            <input type="number" id="f-eval-val" min="1" max="999" style="flex:1;padding:7px 9px;border:1px solid #D1D5DB;border-radius:6px;font-size:.84rem">
+            <select id="f-eval-unit" style="flex:1.2;padding:7px 9px;border:1px solid #D1D5DB;border-radius:6px;font-size:.84rem">
+              <option value="days">日</option>
+              <option value="weeks">週</option>
+              <option value="months">ヶ月</option>
+            </select>
+          </div>
+          <div class="fr" style="gap:6px">
+            <input type="text" id="f-eval-label" placeholder="ゾーンのラベル" style="flex:1;padding:7px 9px;border:1px solid #D1D5DB;border-radius:6px;font-size:.84rem">
+            <input type="color" id="f-eval-color" style="width:42px;height:36px;padding:2px;border:1px solid #D1D5DB;border-radius:6px;cursor:pointer">
+          </div>
         </div>
       </div>
       <div class="fg">
@@ -327,7 +337,9 @@ const DEFAULT_CONFIG = {
       ],
     },
   ],
-  epicKey:   '',
+  epicKey:      '',
+  showEvalZone: true,
+  evalZone:     { label: 'リリース評価', color: '#8B5CF6' },
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -353,6 +365,8 @@ function loadConfig() {
     const s = localStorage.getItem('gantt-gen-cfg');
     const c = s ? JSON.parse(s) : JSON.parse(JSON.stringify(DEFAULT_CONFIG));
     delete c.evalPhase; // 旧バージョンの設定キーを除去
+    if (c.showEvalZone === undefined) c.showEvalZone = true;
+    if (!c.evalZone) c.evalZone = { label: 'リリース評価', color: '#8B5CF6' };
     return c;
   } catch { return JSON.parse(JSON.stringify(DEFAULT_CONFIG)); }
 }
@@ -530,7 +544,7 @@ function runSchedule() {
   // 警告収集
   const warnings = [];
   tasks.forEach(t => {
-    if (t.endDate && t.endDate >= evalStart && !t.isBackground)
+    if (C.showEvalZone !== false && t.endDate && t.endDate >= evalStart && !t.isBackground)
       warnings.push(`「${t.itemName} / ${t.phaseType}」がリリース評価開始（${fmtJP(evalStart)}）を超過しています。`);
     if (!t.startDate && t.status !== 'complete')
       warnings.push(`「${t.itemName} / ${t.phaseType}」を担当できる人が見つかりませんでした。`);
@@ -623,11 +637,15 @@ function renderGantt(scheduled) {
   });
 
   // ── Eval zone ──
-  const evalX1 = LW + dateToX(evalStart, vStart, unit);
-  const evalX2 = LW + dateToX(evalEnd, vStart, unit);
-  g += `<rect x="${evalX1}" y="0" width="${evalX2-evalX1}" height="${totalH}" fill="#8B5CF6" opacity=".06"/>`;
-  g += `<line x1="${evalX1}" y1="0" x2="${evalX1}" y2="${totalH}" stroke="#8B5CF6" stroke-width="1.5" stroke-dasharray="4,3" opacity=".5"/>`;
-  g += `<text x="${evalX1+4}" y="14" fill="#7C3AED" font-size="9.5" font-weight="700" font-family="sans-serif">リリース評価</text>`;
+  if (C.showEvalZone !== false) {
+    const evalX1 = LW + dateToX(evalStart, vStart, unit);
+    const evalX2 = LW + dateToX(evalEnd, vStart, unit);
+    const ezColor = C.evalZone?.color ?? '#8B5CF6';
+    const ezLabel = C.evalZone?.label ?? 'リリース評価';
+    g += `<rect x="${evalX1}" y="0" width="${evalX2-evalX1}" height="${totalH}" fill="${ezColor}" opacity=".06"/>`;
+    g += `<line x1="${evalX1}" y1="0" x2="${evalX1}" y2="${totalH}" stroke="${ezColor}" stroke-width="1.5" stroke-dasharray="4,3" opacity=".5"/>`;
+    g += `<text x="${evalX1+4}" y="14" fill="${ezColor}" font-size="9.5" font-weight="700" font-family="sans-serif">${ezLabel}</text>`;
+  }
 
   // ── Column grid lines & header labels ──
   g += `<rect x="0" y="22" width="${totalW}" height="${HDR_H-22}" fill="#F3F4F6"/>`;
@@ -806,11 +824,15 @@ document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click
 //  EDITOR — PROJECT
 // ═══════════════════════════════════════════════════════════
 function initProjectForm() {
-  document.getElementById('f-name').value     = C.projectName;
-  document.getElementById('f-start').value    = C.startDate;
-  document.getElementById('f-release').value  = C.releaseDate;
-  document.getElementById('f-eval-val').value = C.evalPeriod.value;
-  document.getElementById('f-eval-unit').value= C.evalPeriod.unit;
+  document.getElementById('f-name').value      = C.projectName;
+  document.getElementById('f-start').value     = C.startDate;
+  document.getElementById('f-release').value   = C.releaseDate;
+  document.getElementById('f-eval-val').value  = C.evalPeriod.value;
+  document.getElementById('f-eval-unit').value = C.evalPeriod.unit;
+  document.getElementById('f-eval-show').checked    = C.showEvalZone !== false;
+  document.getElementById('f-eval-label').value     = C.evalZone?.label ?? 'リリース評価';
+  document.getElementById('f-eval-color').value     = C.evalZone?.color ?? '#8B5CF6';
+  document.getElementById('eval-zone-detail').style.display = C.showEvalZone !== false ? '' : 'none';
   document.querySelector(`input[name="ganttUnit"][value="${C.ganttUnit}"]`).checked = true;
 }
 document.getElementById('f-name').addEventListener('input', e => { C.projectName = e.target.value; render(); });
@@ -818,6 +840,13 @@ document.getElementById('f-start').addEventListener('change', e => { C.startDate
 document.getElementById('f-release').addEventListener('change', e => { C.releaseDate = e.target.value; render(); });
 document.getElementById('f-eval-val').addEventListener('input', e => { C.evalPeriod.value = parseInt(e.target.value)||1; render(); });
 document.getElementById('f-eval-unit').addEventListener('change', e => { C.evalPeriod.unit = e.target.value; render(); });
+document.getElementById('f-eval-show').addEventListener('change', e => {
+  C.showEvalZone = e.target.checked;
+  document.getElementById('eval-zone-detail').style.display = e.target.checked ? '' : 'none';
+  render();
+});
+document.getElementById('f-eval-label').addEventListener('input', e => { C.evalZone.label = e.target.value; render(); });
+document.getElementById('f-eval-color').addEventListener('input', e => { C.evalZone.color = e.target.value; render(); });
 document.querySelectorAll('input[name="ganttUnit"]').forEach(r =>
   r.addEventListener('change', e => { if(e.target.checked){ C.ganttUnit = e.target.value; render(); } }));
 
