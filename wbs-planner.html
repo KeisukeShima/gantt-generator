@@ -102,6 +102,10 @@ tbody tr.erow td{background:#FAF5FF}
 
 /* ── Warn / Hint ── */
 .warn-box{display:flex;align-items:flex-start;gap:10px;background:#FEF2F2;border:1px solid #FECACA;border-radius:8px;padding:11px 15px;font-size:.82rem;color:#991B1B;line-height:1.7}
+
+/* ── Release list ── */
+.release-wrap > .li-head { background: var(--rcolor-bg, #F5F3FF); }
+.items-in-release { margin-left: 8px; margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -129,11 +133,11 @@ tbody tr.erow td{background:#FAF5FF}
       <div id="pt-list"></div>
     </div>
 
-    <!-- ▸ ITEMS -->
+    <!-- ▸ ITEMS / RELEASES -->
     <div class="tab-pane" id="tab-items">
       <div class="sec-title">
-        <span>開発アイテム</span>
-        <button class="btn btn-primary btn-sm" id="btn-add-item">＋ 追加</button>
+        <span>リリース</span>
+        <button class="btn btn-primary btn-sm" id="btn-add-release">＋ リリース追加</button>
       </div>
       <div id="items-list"></div>
     </div>
@@ -150,30 +154,9 @@ tbody tr.erow td{background:#FAF5FF}
     <!-- ▸ PROJECT + HOLIDAYS -->
     <div class="tab-pane" id="tab-project">
       <div class="fg"><label>プロジェクト名</label><input type="text" id="f-name"></div>
-      <div class="fr">
-        <div class="fg"><label>開始日</label><input type="date" id="f-start"></div>
-        <div class="fg"><label>リリース日</label><input type="date" id="f-release"></div>
-      </div>
       <div class="fg">
-        <label>リリース評価ゾーン</label>
-        <label style="display:flex;align-items:center;gap:6px;margin-bottom:8px;cursor:pointer">
-          <input type="checkbox" id="f-eval-show" style="margin:0">
-          <span style="font-size:.84rem;color:#374151">ガントチャートに表示する</span>
-        </label>
-        <div id="eval-zone-detail">
-          <div class="fr" style="gap:6px;margin-bottom:6px">
-            <input type="number" id="f-eval-val" min="1" max="999" style="flex:1;padding:7px 9px;border:1px solid #D1D5DB;border-radius:6px;font-size:.84rem">
-            <select id="f-eval-unit" style="flex:1.2;padding:7px 9px;border:1px solid #D1D5DB;border-radius:6px;font-size:.84rem">
-              <option value="days">日</option>
-              <option value="weeks">週</option>
-              <option value="months">ヶ月</option>
-            </select>
-          </div>
-          <div class="fr" style="gap:6px">
-            <input type="text" id="f-eval-label" placeholder="ゾーンのラベル" style="flex:1;padding:7px 9px;border:1px solid #D1D5DB;border-radius:6px;font-size:.84rem">
-            <input type="color" id="f-eval-color" style="width:42px;height:36px;padding:2px;border:1px solid #D1D5DB;border-radius:6px;cursor:pointer">
-          </div>
-        </div>
+        <label>デフォルト開始日 <span style="font-weight:400;color:#9CA3AF;text-transform:none">（新規リリース追加時の初期値）</span></label>
+        <input type="date" id="f-start">
       </div>
       <div class="fg">
         <label>ガントチャート表示単位</label>
@@ -245,7 +228,6 @@ tbody tr.erow td{background:#FAF5FF}
       <hr class="divider">
 
       <div class="sec-title">課題登録</div>
-      <div class="fg"><label>JIRA Epic キー</label><input type="text" id="f-epic-key" placeholder="例: PROJ-1"></div>
 
       <div class="sec-title" style="margin-top:12px">
         <span>必須フィールド設定</span>
@@ -328,9 +310,7 @@ const BUNDLED = [
 // ═══════════════════════════════════════════════════════════
 const DEFAULT_CONFIG = {
   projectName: '新規プロジェクト',
-  startDate:   '2026-04-20',
-  releaseDate: '2026-07-15',
-  evalPeriod:  { value: 4, unit: 'weeks' },
+  startDate:   '2026-04-20',    // 新規リリース追加時のデフォルト開始日
   ganttUnit:   'weeks',
   holidays: {
     national: [...BUNDLED],
@@ -346,18 +326,28 @@ const DEFAULT_CONFIG = {
     { name: '担当者A', team: 'チーム1', phases: ['要件定義','テストケース作成'], availableFrom: null, utilization: 1.0, note: '', jiraUser: '' },
     { name: '担当者B', team: 'チーム2', phases: ['設計開発'], availableFrom: null, utilization: 1.0, note: '', jiraUser: '' },
   ],
-  items: [
+  releases: [
     {
-      name: 'サンプルタスク', category: '開発', note: '',
-      phases: [
-        { type: '要件定義', days: 5 },
-        { type: '設計開発', days: 10 },
+      id:          'r_default',
+      name:        'リリース1',
+      color:       '#6D28D9',
+      startDate:   '2026-04-20',
+      releaseDate: '2026-07-15',
+      evalPeriod:  { value: 4, unit: 'weeks' },
+      showEvalZone: true,
+      evalZone:    { label: 'リリース評価', color: '#8B5CF6' },
+      epicKey:     '',
+      items: [
+        {
+          name: 'サンプルタスク', category: '開発', note: '',
+          phases: [
+            { type: '要件定義', days: 5 },
+            { type: '設計開発', days: 10 },
+          ],
+        },
       ],
     },
   ],
-  epicKey:      '',
-  showEvalZone: true,
-  evalZone:     { label: 'リリース評価', color: '#8B5CF6' },
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -378,13 +368,52 @@ function saveJiraConfig() {
   try { localStorage.setItem('wbs-jira-cfg', JSON.stringify(JC)); } catch {}
 }
 
+function genId() {
+  return Math.random().toString(36).slice(2, 8);
+}
+
 function loadConfig() {
   try {
     const s = localStorage.getItem('gantt-gen-cfg');
     const c = s ? JSON.parse(s) : JSON.parse(JSON.stringify(DEFAULT_CONFIG));
-    delete c.evalPhase; // 旧バージョンの設定キーを除去
-    if (c.showEvalZone === undefined) c.showEvalZone = true;
-    if (!c.evalZone) c.evalZone = { label: 'リリース評価', color: '#8B5CF6' };
+
+    // ── 旧フィールド除去 ──
+    delete c.evalPhase;
+
+    // ── 旧形式マイグレーション：items がトップレベルにある場合 ──
+    if (c.items && !c.releases) {
+      c.releases = [{
+        id:          genId(),
+        name:        'リリース1',
+        color:       '#6D28D9',
+        startDate:   c.startDate || DEFAULT_CONFIG.releases[0].startDate,
+        releaseDate: c.releaseDate || DEFAULT_CONFIG.releases[0].releaseDate,
+        evalPeriod:  c.evalPeriod  || { value: 4, unit: 'weeks' },
+        showEvalZone: c.showEvalZone !== false,
+        evalZone:    c.evalZone    || { label: 'リリース評価', color: '#8B5CF6' },
+        epicKey:     c.epicKey     || '',
+        items:       c.items,
+      }];
+      delete c.items;
+      delete c.releaseDate;
+      delete c.evalPeriod;
+      delete c.showEvalZone;
+      delete c.evalZone;
+      delete c.epicKey;
+    }
+
+    // ── releases がない場合（空の新規ファイルなど）──
+    if (!c.releases) c.releases = JSON.parse(JSON.stringify(DEFAULT_CONFIG.releases));
+
+    // ── 各リリースのデフォルト補完 ──
+    c.releases.forEach(r => {
+      if (!r.id)          r.id = genId();
+      if (!r.evalPeriod)  r.evalPeriod = { value: 4, unit: 'weeks' };
+      if (!r.evalZone)    r.evalZone   = { label: 'リリース評価', color: '#8B5CF6' };
+      if (r.showEvalZone === undefined) r.showEvalZone = true;
+      if (!r.items)       r.items = [];
+    });
+
     return c;
   } catch { return JSON.parse(JSON.stringify(DEFAULT_CONFIG)); }
 }
@@ -412,12 +441,12 @@ function isBiz(d, hols) { const w=d.getDay(); return w!==0&&w!==6&&!hols.has(fmt
 function countBiz(s,e,hols) { let n=0,d=new Date(s); while(d<=e){if(isBiz(d,hols))n++;d=addDays(d,1);} return n; }
 function subtractBiz(end,n,hols) { let d=new Date(end),c=0; while(c<n){if(isBiz(d,hols))c++;if(c<n)d=addDays(d,-1);} return d; }
 
-function evalToBusinessDays(period, hols) {
+function evalToBusinessDays(period, hols, releaseDate) {
   const { value, unit } = period;
   if (unit === 'days')  return value;
   if (unit === 'weeks') return value * 5;
   // months: count biz days in `value` calendar months before release
-  const rel   = parse(C.releaseDate);
+  const rel   = parse(releaseDate);
   const start = new Date(rel.getFullYear(), rel.getMonth() - value, rel.getDate());
   return countBiz(start, rel, hols);
 }
@@ -430,43 +459,70 @@ function getMondayOf(d) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  SCHEDULER  (adapted from gantt.html)
+//  SCHEDULER  (multi-release)
 // ═══════════════════════════════════════════════════════════
 function runSchedule() {
-  const hols     = getHolSet();
-  const _start   = parse(C.startDate);
-  const _release = parse(C.releaseDate);
-  const evalBD   = evalToBusinessDays(C.evalPeriod, hols);
-  const evalStart = subtractBiz(_release, evalBD, hols);
+  const hols = getHolSet();
 
+  // ── リリースがない場合は空を返す ──
+  if (!C.releases || C.releases.length === 0) {
+    return { tasks: [], releaseMeta: [], warnings: [], hols };
+  }
+
+  // ── リリースごとの evalStart を計算 ──
+  const releaseMeta = C.releases.map(r => {
+    const releaseDate = parse(r.releaseDate || C.startDate);
+    const evalBD      = evalToBusinessDays(r.evalPeriod || { value: 4, unit: 'weeks' }, hols, r.releaseDate || C.startDate);
+    const evalStart   = subtractBiz(releaseDate, evalBD, hols);
+    return {
+      id:          r.id,
+      name:        r.name,
+      color:       r.color || '#6D28D9',
+      startDate:   r.startDate || C.startDate,
+      releaseDate: r.releaseDate || C.startDate,
+      evalStart,
+      showEvalZone: r.showEvalZone !== false,
+      evalZone:    r.evalZone || { label: 'リリース評価', color: '#8B5CF6' },
+    };
+  });
+
+  // ── 全リリースのアイテムをフラットなタスクリストに展開 ──
   const tasks = [];
-  C.items.forEach((item, iIdx) => {
-    let remaining = item.phases.reduce((s,p) => s+p.days, 0);
-    item.phases.forEach((phase, pIdx) => {
-      tasks.push({
-        id:           `${iIdx}-${pIdx}`,
-        itemIdx:      iIdx,
-        itemName:     item.name,
-        category:     item.category || '',
-        phaseType:    phase.type,
-        totalDays:    phase.days,
-        phaseIdx:     pIdx,
-        wbsNo:        `${iIdx+1}.${pIdx+1}`,
-        predId:       pIdx > 0 ? `${iIdx}-${pIdx-1}` : null,
-        priority:     remaining,
-        isBackground: !!phase.background,
-        isFixed:      !!phase.fixedStart,
-        fixedStartDate: phase.fixedStart ? parse(phase.fixedStart) : null,
-        allowedPeople:  phase.allowedPeople || null,
-        requireAll:     !!phase.requireAll,
-        status:       'waiting',
-        startDate:    null,
-        endDate:      null,
-        daysWorked:   0,
-        assignedPeople: [],
-        hasConflict:  false,
+  C.releases.forEach((release, rIdx) => {
+    const meta = releaseMeta[rIdx];
+    (release.items || []).forEach((item, iIdx) => {
+      let remaining = item.phases.reduce((s, p) => s + p.days, 0);
+      item.phases.forEach((phase, pIdx) => {
+        tasks.push({
+          id:             `${rIdx}-${iIdx}-${pIdx}`,
+          releaseIdx:     rIdx,
+          releaseId:      release.id,
+          itemIdx:        iIdx,
+          itemName:       item.name,
+          category:       item.category || '',
+          phaseType:      phase.type,
+          totalDays:      phase.days,
+          phaseIdx:       pIdx,
+          wbsNo:          `${iIdx+1}.${pIdx+1}`,
+          predId:         pIdx > 0 ? `${rIdx}-${iIdx}-${pIdx-1}` : null,
+          priority:       remaining,
+          releasePriority: C.releases.length - rIdx, // 先頭リリースを優先
+          releaseStartDate: parse(release.startDate || C.startDate),
+          evalStart:      meta.evalStart,
+          isBackground:   !!phase.background,
+          isFixed:        !!phase.fixedStart,
+          fixedStartDate: phase.fixedStart ? parse(phase.fixedStart) : null,
+          allowedPeople:  phase.allowedPeople || null,
+          requireAll:     !!phase.requireAll,
+          status:         'waiting',
+          startDate:      null,
+          endDate:        null,
+          daysWorked:     0,
+          assignedPeople: [],
+          hasConflict:    false,
+        });
+        remaining -= phase.days;
       });
-      remaining -= phase.days;
     });
   });
 
@@ -477,7 +533,7 @@ function runSchedule() {
   C.people.forEach(p => personBusy[p.name] = 0);
 
   function pickPeople(task, d) {
-    const phase = C.items[task.itemIdx].phases[task.phaseIdx];
+    const phase = C.releases[task.releaseIdx].items[task.itemIdx].phases[task.phaseIdx];
     const allowed = phase.allowedPeople ? new Set(phase.allowedPeople) : null;
 
     const eligible = C.people.filter(p =>
@@ -497,11 +553,19 @@ function runSchedule() {
     return eligible.length > 0 ? [eligible[0].name] : null;
   }
 
+  // スケジューリングループの開始日・終了日
+  const _start = tasks.reduce((min, t) => t.releaseStartDate < min ? t.releaseStartDate : min,
+    tasks[0]?.releaseStartDate || parse(C.startDate));
+  const latestRelease = releaseMeta.reduce((max, m) => {
+    const d = parse(m.releaseDate);
+    return d > max ? d : max;
+  }, parse(releaseMeta[0].releaseDate));
+  const limit = addDays(latestRelease, 365);
+
   let d = new Date(_start);
-  const limit = addDays(_release, 365);
 
   while (d <= limit) {
-    if (!isBiz(d, hols)) { d = addDays(d,1); continue; }
+    if (!isBiz(d, hols)) { d = addDays(d, 1); continue; }
 
     // 固定開始日タスクを強制開始
     for (const t of tasks) {
@@ -510,7 +574,7 @@ function runSchedule() {
         t.status = 'inProgress'; t.startDate = new Date(d);
         if (assigned) { t.assignedPeople = assigned; assigned.forEach(n => personBusy[n]++); }
         else {
-          const phase = C.items[t.itemIdx].phases[t.phaseIdx];
+          const phase = C.releases[t.releaseIdx].items[t.itemIdx].phases[t.phaseIdx];
           const fb = phase.allowedPeople ? phase.allowedPeople[0] : null;
           t.assignedPeople = fb ? [fb + '(要調整)'] : [];
           t.hasConflict = true;
@@ -518,18 +582,24 @@ function runSchedule() {
       }
     }
 
-    // 先行完了 → ready
+    // 先行完了 → ready（かつリリース開始日を過ぎているもの）
     for (const t of tasks) {
-      if (t.status === 'waiting' && !t.isFixed) {
+      if (t.status === 'waiting' && !t.isFixed && d >= t.releaseStartDate) {
         const pred = t.predId ? taskMap[t.predId] : null;
         if (!pred || pred.status === 'complete') t.status = 'ready';
       }
     }
 
-    // ready タスクを優先度順に着手
+    // ready タスクを優先度順に着手（リリース順 → remaining days 順）
     const ready = tasks
       .filter(t => t.status === 'ready')
-      .sort((a,b) => b.priority - a.priority || a.itemIdx - b.itemIdx || a.phaseIdx - b.phaseIdx);
+      .sort((a, b) =>
+        b.releasePriority - a.releasePriority ||
+        b.priority        - a.priority        ||
+        a.releaseIdx      - b.releaseIdx      ||
+        a.itemIdx         - b.itemIdx         ||
+        a.phaseIdx        - b.phaseIdx
+      );
 
     for (const t of ready) {
       if (t.isBackground) {
@@ -559,18 +629,21 @@ function runSchedule() {
     d = addDays(d, 1);
   }
 
-  // 警告収集
+  // ── 警告収集 ──
   const warnings = [];
   tasks.forEach(t => {
-    if (C.showEvalZone !== false && t.endDate && t.endDate >= evalStart && !t.isBackground)
-      warnings.push(`「${t.itemName} / ${t.phaseType}」がリリース評価開始（${fmtJP(evalStart)}）を超過しています。`);
+    if (t.endDate && t.endDate >= t.evalStart && !t.isBackground) {
+      const rm = releaseMeta[t.releaseIdx];
+      if (rm.showEvalZone)
+        warnings.push(`[${rm.name}]「${t.itemName} / ${t.phaseType}」がリリース評価開始（${fmtJP(t.evalStart)}）を超過しています。`);
+    }
     if (!t.startDate && t.status !== 'complete')
       warnings.push(`「${t.itemName} / ${t.phaseType}」を担当できる人が見つかりませんでした。`);
     if (t.hasConflict)
       warnings.push(`「${t.itemName} / ${t.phaseType}」でリソース競合が発生しました。`);
   });
 
-  return { tasks, evalStart, evalEnd: _release, warnings, hols };
+  return { tasks, releaseMeta, warnings, hols };
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -607,81 +680,106 @@ function buildColHeaders(vStart, vEnd, unit) {
 }
 
 function renderGantt(scheduled) {
-  const { tasks, evalStart, evalEnd, hols } = scheduled;
-  const unit   = C.ganttUnit || 'weeks';
-  const colW   = COL_W[unit];
-  const _start = parse(C.startDate);
+  const { tasks, releaseMeta, hols } = scheduled;
+  const unit = C.ganttUnit || 'weeks';
+  const colW = COL_W[unit];
 
-  // View range
-  const dow0  = _start.getDay();
-  const vStart = addDays(_start, -(dow0===0?6:dow0-1)); // snap to Monday
-  const relDow = evalEnd.getDay();
-  const vEnd   = addDays(evalEnd, relDow===0?0:7-relDow+7);
+  if (!tasks.length || !releaseMeta.length) {
+    document.getElementById('gantt').innerHTML = '';
+    document.getElementById('legend').innerHTML = '';
+    return;
+  }
 
-  const totalW = LW + dateToX(vEnd, vStart, unit);
+  // ── View range: 全リリースの startDate〜releaseDate を包含 ──
+  const allStarts  = releaseMeta.map(m => parse(m.startDate));
+  const allEnds    = releaseMeta.map(m => parse(m.releaseDate));
+  const _start     = allStarts.reduce((min, d) => d < min ? d : min);
+  const _end       = allEnds.reduce((max, d) => d > max ? d : max);
+  const dow0       = _start.getDay();
+  const vStart     = addDays(_start, -(dow0 === 0 ? 6 : dow0 - 1));
+  const endDow     = _end.getDay();
+  const vEnd       = addDays(_end, endDow === 0 ? 0 : 7 - endDow + 7);
 
-  // Row layout: group by item
-  const rows = []; // { task | 'itemHeader' }
-  let prevItemIdx = -1;
+  // ── 行リストを構築（release header → item header → task rows）──
+  const rows = [];
+  let prevReleaseIdx = -1;
+  let prevItemKey    = null;
+
   tasks.forEach(t => {
-    if (t.itemIdx !== prevItemIdx) { rows.push({ kind:'hdr', item: C.items[t.itemIdx], iIdx: t.itemIdx }); prevItemIdx = t.itemIdx; }
-    rows.push({ kind:'task', task: t });
+    if (t.releaseIdx !== prevReleaseIdx) {
+      rows.push({ kind: 'release', rIdx: t.releaseIdx, meta: releaseMeta[t.releaseIdx], firstRow: rows.length });
+      prevReleaseIdx = t.releaseIdx;
+      prevItemKey    = null;
+    }
+    const itemKey = `${t.releaseIdx}-${t.itemIdx}`;
+    if (itemKey !== prevItemKey) {
+      rows.push({ kind: 'hdr', item: C.releases[t.releaseIdx].items[t.itemIdx], iIdx: t.itemIdx, rIdx: t.releaseIdx });
+      prevItemKey = itemKey;
+    }
+    rows.push({ kind: 'task', task: t });
   });
 
-  const bodyH = rows.length * ROW_H + PAD;
-  const totalH = HDR_H + bodyH;
+  // リリース行ごとに rowCount を計算（eval zone の高さ計算用）
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i].kind === 'release') {
+      let j = i + 1;
+      while (j < rows.length && rows[j].kind !== 'release') j++;
+      rows[i].rowCount = j - i;
+    }
+  }
+
+  const totalW  = LW + dateToX(vEnd, vStart, unit);
+  const bodyH   = rows.length * ROW_H + PAD;
+  const totalH  = HDR_H + bodyH;
 
   const phaseColor = {};
   C.phaseTypes.forEach(pt => phaseColor[pt.name] = pt.color);
 
   let g = '';
 
-  // ── Background zones ──
+  // ── Background zones (weekend/holiday shading) ──
   const cols = buildColHeaders(vStart, vEnd, unit);
   cols.forEach((col, i) => {
     const x = LW + dateToX(col, vStart, unit);
-    const w = i+1 < cols.length ? dateToX(cols[i+1], vStart, unit) - dateToX(col, vStart, unit) : colW;
-    // weekend / holiday shade for day unit
+    const w = i + 1 < cols.length ? dateToX(cols[i+1], vStart, unit) - dateToX(col, vStart, unit) : colW;
     if (unit === 'days') {
-      const dow = col.getDay();
-      const isHol = hols.has(fmt(col));
+      const dow    = col.getDay();
+      const isHol  = hols.has(fmt(col));
       if (isHol && dow !== 0 && dow !== 6)
         g += `<rect x="${x}" y="0" width="${w}" height="${totalH}" fill="#FEF3C7" opacity=".5"/>`;
       else if (dow === 0 || dow === 6)
         g += `<rect x="${x}" y="0" width="${w}" height="${totalH}" fill="#F9FAFB" opacity=".7"/>`;
     } else {
-      if (i%2===0) g += `<rect x="${x}" y="${HDR_H}" width="${w}" height="${bodyH}" fill="#F9FAFB" opacity=".6"/>`;
+      if (i % 2 === 0) g += `<rect x="${x}" y="${HDR_H}" width="${w}" height="${bodyH}" fill="#F9FAFB" opacity=".6"/>`;
     }
   });
 
-  // ── Eval zone ──
-  if (C.showEvalZone !== false) {
-    const evalX1 = LW + dateToX(evalStart, vStart, unit);
-    const evalX2 = LW + dateToX(evalEnd, vStart, unit);
-    const ezColor = C.evalZone?.color ?? '#8B5CF6';
-    const ezLabel = C.evalZone?.label ?? 'リリース評価';
-    g += `<rect x="${evalX1}" y="0" width="${evalX2-evalX1}" height="${totalH}" fill="${ezColor}" opacity=".06"/>`;
-    g += `<line x1="${evalX1}" y1="0" x2="${evalX1}" y2="${totalH}" stroke="${ezColor}" stroke-width="1.5" stroke-dasharray="4,3" opacity=".5"/>`;
-    g += `<text x="${evalX1+4}" y="14" fill="${ezColor}" font-size="9.5" font-weight="700" font-family="sans-serif">${ezLabel}</text>`;
-  }
+  // ── 各リリースの評価ゾーンを描画（そのリリースの行範囲に限定）──
+  rows.forEach((row, ri) => {
+    if (row.kind !== 'release') return;
+    const m = row.meta;
+    if (!m.showEvalZone) return;
+    const zoneY    = HDR_H + ri * ROW_H;
+    const zoneH    = row.rowCount * ROW_H;
+    const evalX1   = LW + dateToX(m.evalStart, vStart, unit);
+    const relX     = LW + dateToX(parse(m.releaseDate), vStart, unit);
+    const color    = m.evalZone?.color ?? '#8B5CF6';
+    const label    = m.evalZone?.label ?? 'リリース評価';
+    g += `<rect x="${evalX1}" y="${zoneY}" width="${relX - evalX1}" height="${zoneH}" fill="${color}" opacity=".07"/>`;
+    g += `<line x1="${evalX1}" y1="${zoneY}" x2="${evalX1}" y2="${zoneY + zoneH}" stroke="${color}" stroke-width="1.5" stroke-dasharray="4,3" opacity=".6"/>`;
+    g += `<text x="${evalX1+4}" y="${zoneY+13}" fill="${color}" font-size="9" font-weight="700" font-family="sans-serif">${esc(label)}</text>`;
+    g += `<text x="${relX}" y="${zoneY+13}" text-anchor="end" font-size="11" font-family="sans-serif">📦</text>`;
+  });
 
   // ── Column grid lines & header labels ──
   g += `<rect x="0" y="22" width="${totalW}" height="${HDR_H-22}" fill="#F3F4F6"/>`;
-  g += `<text x="10" y="38" fill="#374151" font-size="11" font-weight="700" font-family="sans-serif">アイテム / 工程</text>`;
+  g += `<text x="10" y="38" fill="#374151" font-size="11" font-weight="700" font-family="sans-serif">リリース / アイテム / 工程</text>`;
 
   let prevMonth = -1, prevYear = -1;
   cols.forEach((col, i) => {
     const x = LW + dateToX(col, vStart, unit);
-    const w = i+1 < cols.length ? dateToX(cols[i+1], vStart, unit) - dateToX(col, vStart, unit) : colW;
-
-    // Top label (month / year changes)
-    if (unit === 'days') {
-      const m = col.getMonth();
-      if (m !== prevMonth) {
-        g += `<text x="${x+2}" y="14" fill="#6B7280" font-size="10" font-weight="700" font-family="sans-serif">${col.getFullYear()}/${m+1}</text>`;
-        prevMonth = m;
-      }
-    } else if (unit === 'weeks') {
+    const w = i + 1 < cols.length ? dateToX(cols[i+1], vStart, unit) - dateToX(col, vStart, unit) : colW;
+    if (unit === 'days' || unit === 'weeks') {
       const m = col.getMonth();
       if (m !== prevMonth) {
         g += `<text x="${x+2}" y="14" fill="#6B7280" font-size="10" font-weight="700" font-family="sans-serif">${col.getFullYear()}/${m+1}</text>`;
@@ -694,42 +792,52 @@ function renderGantt(scheduled) {
         prevYear = y;
       }
     }
-
-    // Grid line
-    g += `<line x1="${x}" y1="22" x2="${x}" y2="${totalH}" stroke="#E5E7EB" stroke-width=".5"/>`;
-
-    // Bottom header label
     let lbl = '';
-    if (unit === 'days')   lbl = `${col.getDate()}`;
-    else if (unit==='weeks') lbl = fmtS(col);
-    else lbl = `${col.getMonth()+1}月`;
+    if (unit === 'days')        lbl = `${col.getDate()}`;
+    else if (unit === 'weeks')  lbl = fmtS(col);
+    else                        lbl = `${col.getMonth()+1}月`;
     if (w >= 18) g += `<text x="${x+w/2}" y="38" text-anchor="middle" fill="#6B7280" font-size="${unit==='days'?9:10}" font-family="sans-serif">${lbl}</text>`;
+    g += `<line x1="${x}" y1="22" x2="${x}" y2="${totalH}" stroke="#E5E7EB" stroke-width=".5"/>`;
   });
 
-  // Header bottom border
   g += `<line x1="0" y1="${HDR_H}" x2="${totalW}" y2="${HDR_H}" stroke="#E5E7EB" stroke-width="1"/>`;
   g += `<line x1="${LW}" y1="0" x2="${LW}" y2="${totalH}" stroke="#D1D5DB" stroke-width="1"/>`;
 
   // ── Rows ──
+  const RELEASE_ROW_H = ROW_H;
   rows.forEach((row, ri) => {
     const ry = HDR_H + ri * ROW_H;
-    if (ri % 2 === 0) g += `<rect x="0" y="${ry}" width="${LW}" height="${ROW_H}" fill="#FAFAFA"/>`;
 
-    if (row.kind === 'hdr') {
-      // Item header row (label only, no bar)
-      g += `<text x="8" y="${ry+ROW_H/2+4}" fill="#374151" font-size="10.5" font-weight="700" font-family="sans-serif">${row.iIdx+1} ${esc(trunc(row.item.name,22))}</text>`;
-      if (row.item.category) g += `<rect x="${LW-75}" y="${ry+6}" width="70" height="16" rx="8" fill="#F3F4F6"/>
-        <text x="${LW-40}" y="${ry+17}" text-anchor="middle" fill="#6B7280" font-size="9" font-family="sans-serif">${esc(trunc(row.item.category,10))}</text>`;
+    if (row.kind === 'release') {
+      // リリース見出し行（識別色背景）
+      const color = row.meta.color || '#6D28D9';
+      g += `<rect x="0" y="${ry}" width="${totalW}" height="${RELEASE_ROW_H}" fill="${color}" opacity=".12"/>`;
+      g += `<rect x="0" y="${ry}" width="${LW}" height="${RELEASE_ROW_H}" fill="${color}" opacity=".2"/>`;
+      g += `<text x="8" y="${ry+RELEASE_ROW_H/2+4}" fill="${color}" font-size="11" font-weight="700" font-family="sans-serif">▼ ${esc(trunc(row.meta.name, 18))}</text>`;
+      g += `<text x="${LW+6}" y="${ry+RELEASE_ROW_H/2+4}" fill="${color}" font-size="9" font-family="sans-serif">${row.meta.startDate} 〜 ${row.meta.releaseDate}</text>`;
+      g += `<line x1="0" y1="${ry}" x2="${totalW}" y2="${ry}" stroke="${color}" stroke-width=".8" opacity=".4"/>`;
+
+    } else if (row.kind === 'hdr') {
+      // アイテム見出し行
+      if (ri % 2 === 0) g += `<rect x="0" y="${ry}" width="${LW}" height="${ROW_H}" fill="#FAFAFA"/>`;
+      g += `<text x="16" y="${ry+ROW_H/2+4}" fill="#374151" font-size="10" font-weight="700" font-family="sans-serif">${row.iIdx+1} ${esc(trunc(row.item.name, 20))}</text>`;
+      if (row.item.category) {
+        g += `<rect x="${LW-75}" y="${ry+6}" width="70" height="16" rx="8" fill="#F3F4F6"/>`;
+        g += `<text x="${LW-40}" y="${ry+17}" text-anchor="middle" fill="#6B7280" font-size="9" font-family="sans-serif">${esc(trunc(row.item.category, 10))}</text>`;
+      }
       g += `<line x1="0" y1="${ry}" x2="${totalW}" y2="${ry}" stroke="#E5E7EB" stroke-width=".8"/>`;
+
     } else {
+      // タスク行
       const { task: t } = row;
-      g += `<text x="18" y="${ry+ROW_H/2+4}" fill="#9CA3AF" font-size="9.5" font-family="sans-serif">└ ${esc(t.wbsNo)} ${esc(t.phaseType)}</text>`;
+      if (ri % 2 === 0) g += `<rect x="0" y="${ry}" width="${LW}" height="${ROW_H}" fill="#FAFAFA"/>`;
+      g += `<text x="24" y="${ry+ROW_H/2+4}" fill="#9CA3AF" font-size="9.5" font-family="sans-serif">└ ${esc(t.wbsNo)} ${esc(t.phaseType)}</text>`;
 
       if (t.startDate && t.endDate) {
-        const bx = LW + dateToX(t.startDate, vStart, unit);
-        const ex = LW + dateToX(addDays(t.endDate,1), vStart, unit);
-        const bw = Math.max(ex-bx, 3);
-        const by = ry+4, bh = ROW_H-8;
+        const bx  = LW + dateToX(t.startDate, vStart, unit);
+        const ex  = LW + dateToX(addDays(t.endDate, 1), vStart, unit);
+        const bw  = Math.max(ex - bx, 3);
+        const by  = ry + 4, bh = ROW_H - 8;
         const col = t.isBackground ? '#D1D5DB' : (phaseColor[t.phaseType] || '#6B7280');
         if (t.isBackground) {
           g += `<rect x="${bx}" y="${by}" width="${bw}" height="${bh}" rx="3" fill="none" stroke="${col}" stroke-width="1.5" stroke-dasharray="4,3"/>`;
@@ -754,15 +862,13 @@ function renderGantt(scheduled) {
     g += `<text x="${tx+2}" y="${HDR_H+11}" fill="#EF4444" font-size="9" font-family="sans-serif">今日</text>`;
   }
 
-  // White bg for label area
   g = `<rect x="0" y="0" width="${totalW}" height="${totalH}" fill="#fff"/>` + g;
-  // Freeze label column visually
   g += `<rect x="0" y="${HDR_H}" width="${LW}" height="${bodyH}" fill="rgba(255,255,255,0)"/>`;
 
   const svg = document.getElementById('gantt');
-  svg.setAttribute('width',  Math.ceil(totalW));
-  svg.setAttribute('height', Math.ceil(totalH));
-  svg.setAttribute('viewBox',`0 0 ${Math.ceil(totalW)} ${Math.ceil(totalH)}`);
+  svg.setAttribute('width',   Math.ceil(totalW));
+  svg.setAttribute('height',  Math.ceil(totalH));
+  svg.setAttribute('viewBox', `0 0 ${Math.ceil(totalW)} ${Math.ceil(totalH)}`);
   svg.innerHTML = g;
 
   // Legend
@@ -777,20 +883,32 @@ function renderGantt(scheduled) {
 //  TABLE RENDERER
 // ═══════════════════════════════════════════════════════════
 function renderTable(scheduled) {
-  const { tasks, evalStart, evalEnd, hols } = scheduled;
+  const { tasks, releaseMeta, hols } = scheduled;
   let h = '';
-  let prev = -1;
+  let prevReleaseIdx = -1;
+  let prevItemKey    = null;
+
   tasks.forEach(t => {
-    if (t.itemIdx !== prev) {
-      h += `<tr class="irow"><td colspan="5">${t.itemIdx+1} ${esc(t.itemName)}${t.category?`<span class="badge" style="background:#F3F4F6;color:#6B7280;margin-left:8px">${esc(t.category)}</span>`:''}</td></tr>`;
-      prev = t.itemIdx;
+    // リリース見出し行
+    if (t.releaseIdx !== prevReleaseIdx) {
+      const m     = releaseMeta[t.releaseIdx];
+      const color = m.color || '#6D28D9';
+      h += `<tr style="background:${color}1a"><td colspan="5" style="font-weight:700;color:${color};font-size:.82rem;padding:7px 13px">▼ ${esc(m.name)} &nbsp;<span style="font-weight:400;font-size:.75rem">${m.startDate} 〜 ${m.releaseDate}</span></td></tr>`;
+      prevReleaseIdx = t.releaseIdx;
+      prevItemKey    = null;
     }
-    const biz = (t.startDate&&t.endDate) ? countBiz(t.startDate,t.endDate,hols) : '—';
+    // アイテム見出し行
+    const itemKey = `${t.releaseIdx}-${t.itemIdx}`;
+    if (itemKey !== prevItemKey) {
+      h += `<tr class="irow"><td colspan="5" style="padding-left:22px">${t.itemIdx+1} ${esc(t.itemName)}${t.category ? `<span class="badge" style="background:#F3F4F6;color:#6B7280;margin-left:8px">${esc(t.category)}</span>` : ''}</td></tr>`;
+      prevItemKey = itemKey;
+    }
+    const biz = (t.startDate && t.endDate) ? countBiz(t.startDate, t.endDate, hols) : '—';
     h += `<tr>
-      <td style="padding-left:22px">${esc(t.wbsNo)} ${esc(t.phaseType)}${t.isBackground?' <em style="color:#9CA3AF;font-size:.8em">(BG)</em>':''}</td>
-      <td>${esc(t.assignedPeople.join(', ')||'未割当')}</td>
-      <td>${t.startDate?fmtJP(t.startDate):'—'}</td>
-      <td>${t.endDate?fmtJP(t.endDate):'—'}</td>
+      <td style="padding-left:36px">${esc(t.wbsNo)} ${esc(t.phaseType)}${t.isBackground ? ' <em style="color:#9CA3AF;font-size:.8em">(BG)</em>' : ''}</td>
+      <td>${esc(t.assignedPeople.join(', ') || '未割当')}</td>
+      <td>${t.startDate ? fmtJP(t.startDate) : '—'}</td>
+      <td>${t.endDate   ? fmtJP(t.endDate)   : '—'}</td>
       <td>${biz}</td>
     </tr>`;
   });
@@ -803,12 +921,20 @@ function renderTable(scheduled) {
 function render() {
   saveConfig();
 
-  // Title
-  const { value, unit } = C.evalPeriod;
-  const unitLbl = { days:'日', weeks:'週', months:'ヶ月' }[unit];
+  const releaseCount = C.releases?.length ?? 0;
   document.getElementById('pv-title').textContent = C.projectName || '(プロジェクト名)';
-  document.getElementById('pv-sub').textContent   =
-    `開発アイテム別パイプライン ガントチャート — ${C.startDate} → ${C.releaseDate}（評価期間 ${value}${unitLbl}）`;
+  document.getElementById('pv-sub').textContent =
+    releaseCount === 0
+      ? 'リリースを追加してください'
+      : `${releaseCount} リリース — ${C.releases[0].startDate} 〜 ${C.releases[releaseCount-1].releaseDate}`;
+
+  if (releaseCount === 0) {
+    document.getElementById('gantt').innerHTML = '';
+    document.getElementById('legend').innerHTML = '';
+    document.getElementById('tbody').innerHTML = '';
+    document.getElementById('warn-box').innerHTML = '';
+    return;
+  }
 
   let scheduled;
   try {
@@ -818,10 +944,9 @@ function render() {
     return;
   }
 
-  // Warnings
   const wb = document.getElementById('warn-box');
   wb.innerHTML = scheduled.warnings.length
-    ? `<div class="warn-box">⚠ ${scheduled.warnings.map(w=>`• ${esc(w)}`).join('<br>')}</div>`
+    ? `<div class="warn-box">⚠ ${scheduled.warnings.map(w => `• ${esc(w)}`).join('<br>')}</div>`
     : '';
 
   renderGantt(scheduled);
@@ -842,29 +967,12 @@ document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click
 //  EDITOR — PROJECT
 // ═══════════════════════════════════════════════════════════
 function initProjectForm() {
-  document.getElementById('f-name').value      = C.projectName;
-  document.getElementById('f-start').value     = C.startDate;
-  document.getElementById('f-release').value   = C.releaseDate;
-  document.getElementById('f-eval-val').value  = C.evalPeriod.value;
-  document.getElementById('f-eval-unit').value = C.evalPeriod.unit;
-  document.getElementById('f-eval-show').checked    = C.showEvalZone !== false;
-  document.getElementById('f-eval-label').value     = C.evalZone?.label ?? 'リリース評価';
-  document.getElementById('f-eval-color').value     = C.evalZone?.color ?? '#8B5CF6';
-  document.getElementById('eval-zone-detail').style.display = C.showEvalZone !== false ? '' : 'none';
+  document.getElementById('f-name').value  = C.projectName;
+  document.getElementById('f-start').value = C.startDate;
   document.querySelector(`input[name="ganttUnit"][value="${C.ganttUnit}"]`).checked = true;
 }
 document.getElementById('f-name').addEventListener('input', e => { C.projectName = e.target.value; render(); });
 document.getElementById('f-start').addEventListener('change', e => { C.startDate = e.target.value; render(); });
-document.getElementById('f-release').addEventListener('change', e => { C.releaseDate = e.target.value; render(); });
-document.getElementById('f-eval-val').addEventListener('input', e => { C.evalPeriod.value = parseInt(e.target.value)||1; render(); });
-document.getElementById('f-eval-unit').addEventListener('change', e => { C.evalPeriod.unit = e.target.value; render(); });
-document.getElementById('f-eval-show').addEventListener('change', e => {
-  C.showEvalZone = e.target.checked;
-  document.getElementById('eval-zone-detail').style.display = e.target.checked ? '' : 'none';
-  render();
-});
-document.getElementById('f-eval-label').addEventListener('input', e => { C.evalZone.label = e.target.value; render(); });
-document.getElementById('f-eval-color').addEventListener('input', e => { C.evalZone.color = e.target.value; render(); });
 document.querySelectorAll('input[name="ganttUnit"]').forEach(r =>
   r.addEventListener('change', e => { if(e.target.checked){ C.ganttUnit = e.target.value; render(); } }));
 
@@ -899,7 +1007,7 @@ document.getElementById('btn-reset').addEventListener('click', () => {
   initProjectForm();
   renderPhaseTypesList();
   renderPeopleList();
-  renderItemsList();
+  renderReleasesList();
   render();
 });
 
@@ -978,13 +1086,13 @@ function renderPhaseTypesList() {
       C.phaseTypes[i][f] = e.target.value;
       render();
       // 工程「名」変更時のみ他リストの表示を更新（色・チーム変更は不要）
-      if (f === 'name') { renderPhaseTypesList(); renderPeopleList(); renderItemsList(); }
+      if (f === 'name') { renderPhaseTypesList(); renderPeopleList(); renderReleasesList(); }
       else { renderPhaseTypesList(); } // カラー表示だけ更新
     });
   });
   el.querySelectorAll('[data-del-pt]').forEach(btn => btn.addEventListener('click', e => {
     C.phaseTypes.splice(parseInt(e.target.dataset.delPt),1);
-    render(); renderPhaseTypesList(); renderPeopleList(); renderItemsList();
+    render(); renderPhaseTypesList(); renderPeopleList(); renderReleasesList();
   }));
 }
 
@@ -1043,7 +1151,7 @@ function renderPeopleList() {
     C.people[i][f] = v;
     render();
     // 名前変更時のみアイテム側の allowedPeople 表示を更新
-    if (f === 'name') { renderPeopleList(); renderItemsList(); }
+    if (f === 'name') { renderPeopleList(); renderReleasesList(); }
   }));
   el.querySelectorAll('[data-ph]').forEach(cb => cb.addEventListener('change', e => {
     const i=parseInt(e.target.dataset.pi), ph=e.target.dataset.ph;
@@ -1053,7 +1161,7 @@ function renderPeopleList() {
   }));
   el.querySelectorAll('[data-del-person]').forEach(btn => btn.addEventListener('click', e => {
     C.people.splice(parseInt(e.target.dataset.delPerson),1);
-    render(); renderPeopleList(); renderItemsList();
+    render(); renderPeopleList(); renderReleasesList();
   }));
 }
 
@@ -1063,131 +1171,315 @@ document.getElementById('btn-add-person').addEventListener('click', () => {
 });
 
 // ═══════════════════════════════════════════════════════════
-//  EDITOR — ITEMS
+//  EDITOR — RELEASES + ITEMS
 // ═══════════════════════════════════════════════════════════
-function renderItemsList() {
+function renderReleasesList() {
   const pns = C.phaseTypes.map(pt => pt.name);
   const ppl = C.people.map(p => p.name);
-  const el = document.getElementById('items-list');
-  const openSet = getOpenSet(el);
-  el.innerHTML = C.items.map((item, iIdx) => `
-    <div class="li-wrap">
-      <div class="li-head" onclick="toggleLI(this)">
-        <span class="li-name">${esc(item.name)}</span>
-        <span class="li-sub">${esc(item.category)}</span>
-        <button class="btn btn-danger" data-del-item="${iIdx}" onclick="event.stopPropagation()">削除</button>
+  const el  = document.getElementById('items-list');
+
+  // 開閉状態を保持
+  const openReleases = new Set();
+  const openItems    = new Set();
+  el.querySelectorAll('.release-wrap').forEach(w => {
+    if (w.querySelector(':scope > .li-body.open')) openReleases.add(w.dataset.ri);
+  });
+  el.querySelectorAll('.item-wrap').forEach(w => {
+    if (w.querySelector('.li-body.open')) openItems.add(`${w.dataset.ri}-${w.dataset.ii}`);
+  });
+
+  el.innerHTML = (C.releases || []).map((release, rIdx) => {
+    const color = release.color || '#6D28D9';
+    const dateRange = `${release.startDate || '?'} 〜 ${release.releaseDate || '?'}`;
+    const itemsHtml = (release.items || []).map((item, iIdx) =>
+      renderItemForm(rIdx, iIdx, item, pns, ppl)
+    ).join('');
+
+    return `
+    <div class="li-wrap release-wrap" data-ri="${rIdx}" style="--rcolor-bg:${color}1a;border-color:${color}55">
+      <div class="li-head" onclick="toggleLI(this)" style="background:${color}1a">
+        <span class="swatch" style="background:${color}"></span>
+        <span class="li-name" style="color:${color}">${esc(release.name)}</span>
+        <span class="li-sub">${esc(dateRange)}</span>
+        <button class="btn btn-danger" data-del-release="${rIdx}" onclick="event.stopPropagation()">削除</button>
       </div>
       <div class="li-body">
+        <!-- リリース設定フォーム -->
         <div class="fr">
-          <div class="fg"><label>アイテム名</label><input type="text" value="${esc(item.name)}" data-ii="${iIdx}" data-if="name"></div>
-          <div class="fg"><label>カテゴリ</label><input type="text" value="${esc(item.category)}" data-ii="${iIdx}" data-if="category"></div>
+          <div class="fg"><label>リリース名</label>
+            <input type="text" value="${esc(release.name)}" data-rf="name" data-ri="${rIdx}">
+          </div>
+          <div class="fg" style="flex:0 0 60px"><label>色</label>
+            <input type="color" value="${esc(release.color||'#6D28D9')}" data-rf="color" data-ri="${rIdx}"
+              style="width:100%;height:36px;padding:2px;border:1px solid #D1D5DB;border-radius:6px;cursor:pointer">
+          </div>
         </div>
-        <div class="fg"><label>メモ</label><input type="text" value="${esc(item.note||'')}" data-ii="${iIdx}" data-if="note"></div>
-        <div class="sec-title" style="margin-top:10px">
-          <span>フェーズ</span>
-          <button class="btn btn-secondary btn-sm" data-add-phase="${iIdx}">＋ フェーズ</button>
+        <div class="fr">
+          <div class="fg"><label>開始日</label>
+            <input type="date" value="${esc(release.startDate||'')}" data-rf="startDate" data-ri="${rIdx}">
+          </div>
+          <div class="fg"><label>リリース日</label>
+            <input type="date" value="${esc(release.releaseDate||'')}" data-rf="releaseDate" data-ri="${rIdx}">
+          </div>
         </div>
-        <div id="phases-${iIdx}">
-          ${item.phases.map((ph,pIdx) => phaseForm(iIdx,pIdx,ph,pns,ppl)).join('')}
+        <div class="fg">
+          <label>リリース評価ゾーン</label>
+          <label style="display:flex;align-items:center;gap:6px;margin-bottom:6px;cursor:pointer">
+            <input type="checkbox" data-rf="showEvalZone" data-ri="${rIdx}" ${release.showEvalZone!==false?'checked':''} style="margin:0">
+            <span style="font-size:.84rem;color:#374151">ガントに表示する</span>
+          </label>
+          <div class="eval-zone-sub" data-ri="${rIdx}" style="${release.showEvalZone===false?'display:none':''}">
+            <div class="fr" style="gap:6px;margin-bottom:6px">
+              <input type="number" min="1" max="999" value="${esc(String(release.evalPeriod?.value??4))}"
+                data-rf="evalPeriodValue" data-ri="${rIdx}"
+                style="flex:1;padding:7px 9px;border:1px solid #D1D5DB;border-radius:6px;font-size:.84rem">
+              <select data-rf="evalPeriodUnit" data-ri="${rIdx}"
+                style="flex:1.2;padding:7px 9px;border:1px solid #D1D5DB;border-radius:6px;font-size:.84rem">
+                <option value="days"   ${(release.evalPeriod?.unit||'weeks')==='days'   ?'selected':''}>日</option>
+                <option value="weeks"  ${(release.evalPeriod?.unit||'weeks')==='weeks'  ?'selected':''}>週</option>
+                <option value="months" ${(release.evalPeriod?.unit||'weeks')==='months' ?'selected':''}>ヶ月</option>
+              </select>
+            </div>
+            <div class="fr" style="gap:6px">
+              <input type="text" value="${esc(release.evalZone?.label??'リリース評価')}"
+                data-rf="evalZoneLabel" data-ri="${rIdx}"
+                placeholder="ゾーンのラベル"
+                style="flex:1;padding:7px 9px;border:1px solid #D1D5DB;border-radius:6px;font-size:.84rem">
+              <input type="color" value="${esc(release.evalZone?.color??'#8B5CF6')}"
+                data-rf="evalZoneColor" data-ri="${rIdx}"
+                style="width:42px;height:36px;padding:2px;border:1px solid #D1D5DB;border-radius:6px;cursor:pointer">
+            </div>
+          </div>
         </div>
+        <div class="fg"><label>JIRA Epic キー</label>
+          <input type="text" value="${esc(release.epicKey||'')}" data-rf="epicKey" data-ri="${rIdx}"
+            placeholder="例: PROJ-1">
+        </div>
+        <hr class="divider" style="margin:10px 0">
+        <!-- アイテム一覧 -->
+        <div class="sec-title" style="margin-top:0">
+          <span>アイテム</span>
+        </div>
+        <div class="items-in-release" data-ri="${rIdx}">
+          ${itemsHtml}
+        </div>
+        <button class="btn btn-secondary btn-sm" data-add-item-ri="${rIdx}" style="margin-top:6px;width:100%">
+          ＋ アイテム追加
+        </button>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 
-  restoreOpenSet(el, openSet);
+  // 開閉状態を復元
+  el.querySelectorAll('.release-wrap').forEach(w => {
+    if (openReleases.has(w.dataset.ri)) w.querySelector(':scope > .li-body')?.classList.add('open');
+  });
+  el.querySelectorAll('.item-wrap').forEach(w => {
+    if (openItems.has(`${w.dataset.ri}-${w.dataset.ii}`)) w.querySelector('.li-body')?.classList.add('open');
+  });
 
-  // Item field events
-  el.querySelectorAll('[data-if]').forEach(inp => inp.addEventListener('input', e => {
-    C.items[parseInt(e.target.dataset.ii)][e.target.dataset.if] = e.target.value; render();
-  }));
-  el.querySelectorAll('[data-del-item]').forEach(btn => btn.addEventListener('click', e => {
-    C.items.splice(parseInt(e.target.dataset.delItem),1); render(); renderItemsList();
-  }));
-  el.querySelectorAll('[data-add-phase]').forEach(btn => btn.addEventListener('click', e => {
-    const iIdx = parseInt(e.target.dataset.addPhase);
-    C.items[iIdx].phases.push({ type: pns[0]||'', days:5 });
-    render(); renderItemsList();
-  }));
-
-  wirePhaseEvents(el);
+  wireReleaseEvents(el, pns, ppl);
 }
 
-function phaseForm(iIdx, pIdx, ph, pns, ppl) {
-  const typeOpts = pns.map(n=>`<option value="${esc(n)}" ${ph.type===n?'selected':''}>${esc(n)}</option>`).join('');
-  const pplChecks = ppl.map(name=>`
+function renderItemForm(rIdx, iIdx, item, pns, ppl) {
+  return `
+  <div class="li-wrap item-wrap" data-ri="${rIdx}" data-ii="${iIdx}" style="margin-bottom:7px">
+    <div class="li-head" onclick="toggleLI(this)">
+      <span class="li-name">${esc(item.name)}</span>
+      <span class="li-sub">${esc(item.category)}</span>
+      <button class="btn btn-danger" data-del-item-ri="${rIdx}" data-del-item-ii="${iIdx}" onclick="event.stopPropagation()">削除</button>
+    </div>
+    <div class="li-body">
+      <div class="fr">
+        <div class="fg"><label>アイテム名</label>
+          <input type="text" value="${esc(item.name)}" data-if="name" data-ri="${rIdx}" data-ii="${iIdx}">
+        </div>
+        <div class="fg"><label>カテゴリ</label>
+          <input type="text" value="${esc(item.category)}" data-if="category" data-ri="${rIdx}" data-ii="${iIdx}">
+        </div>
+      </div>
+      <div class="fg"><label>メモ</label>
+        <input type="text" value="${esc(item.note||'')}" data-if="note" data-ri="${rIdx}" data-ii="${iIdx}">
+      </div>
+      <div class="sec-title" style="margin-top:10px">
+        <span>フェーズ</span>
+        <button class="btn btn-secondary btn-sm" data-add-phase-ri="${rIdx}" data-add-phase-ii="${iIdx}">＋ フェーズ</button>
+      </div>
+      <div id="phases-${rIdx}-${iIdx}">
+        ${item.phases.map((ph, pIdx) => phaseForm(rIdx, iIdx, pIdx, ph, pns, ppl)).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function phaseForm(rIdx, iIdx, pIdx, ph, pns, ppl) {
+  const typeOpts = pns.map(n => `<option value="${esc(n)}" ${ph.type===n?'selected':''}>${esc(n)}</option>`).join('');
+  const pplChecks = ppl.map(name => `
     <label class="radio-item" style="font-size:.78rem">
-      <input type="checkbox" data-pp-p="${esc(name)}" data-pi="${iIdx}" data-pj="${pIdx}"
+      <input type="checkbox" data-pp-p="${esc(name)}" data-ri="${rIdx}" data-ii="${iIdx}" data-pj="${pIdx}"
         ${(ph.allowedPeople||[]).includes(name)?'checked':''}> ${esc(name)}
     </label>`).join('');
   const hasFixed = ph.fixedStart !== undefined && ph.fixedStart !== null;
   return `
-    <div class="phase-wrap">
-      <div class="phase-head">
-        <select data-pf="type" data-pi="${iIdx}" data-pj="${pIdx}" style="flex:1;padding:6px 8px;border:1px solid #D1D5DB;border-radius:5px;font-size:.82rem">${typeOpts}</select>
-        <input type="number" min="1" value="${ph.days}" data-pf="days" data-pi="${iIdx}" data-pj="${pIdx}"
-          style="width:65px;padding:6px 8px;border:1px solid #D1D5DB;border-radius:5px;font-size:.82rem" title="工数（営業日）">
-        <span style="font-size:.75rem;color:#9CA3AF">日</span>
-        <button class="btn btn-danger" data-del-ph-i="${iIdx}" data-del-ph-j="${pIdx}">×</button>
-      </div>
-      <div style="margin-bottom:7px">
-        <div class="fg-label">許可担当者 <span style="color:#9CA3AF;font-weight:400;text-transform:none">（未選択 = 自動割当）</span></div>
-        <div class="person-checks">${pplChecks||'<span style="font-size:.78rem;color:#9CA3AF">担当者を先に追加してください</span>'}</div>
-      </div>
-      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:6px">
-        <label class="chk-item" style="font-size:.8rem"><input type="checkbox" data-pf="requireAll" data-pi="${iIdx}" data-pj="${pIdx}" ${ph.requireAll?'checked':''}> 全員同時着手</label>
-        <label class="chk-item" style="font-size:.8rem"><input type="checkbox" data-pf="background" data-pi="${iIdx}" data-pj="${pIdx}" ${ph.background?'checked':''}> バックグラウンド</label>
-      </div>
-      ${hasFixed
-        ? `<div class="fg" style="margin-bottom:0"><label>固定開始日</label><input type="date" value="${ph.fixedStart}" data-pf="fixedStart" data-pi="${iIdx}" data-pj="${pIdx}"></div>`
-        : `<button class="btn btn-secondary btn-sm" style="font-size:.73rem" data-add-fixed="${iIdx}-${pIdx}">＋ 固定開始日を設定</button>`
-      }
-    </div>`;
+  <div class="phase-wrap">
+    <div class="phase-head">
+      <select data-pf="type" data-ri="${rIdx}" data-ii="${iIdx}" data-pj="${pIdx}"
+        style="flex:1;padding:6px 8px;border:1px solid #D1D5DB;border-radius:5px;font-size:.82rem">${typeOpts}</select>
+      <input type="number" min="1" value="${ph.days}" data-pf="days" data-ri="${rIdx}" data-ii="${iIdx}" data-pj="${pIdx}"
+        style="width:65px;padding:6px 8px;border:1px solid #D1D5DB;border-radius:5px;font-size:.82rem">
+      <span style="font-size:.75rem;color:#9CA3AF">日</span>
+      <button class="btn btn-danger" data-del-ph-ri="${rIdx}" data-del-ph-ii="${iIdx}" data-del-ph-pj="${pIdx}">×</button>
+    </div>
+    <div style="margin-bottom:7px">
+      <div class="fg-label">許可担当者 <span style="color:#9CA3AF;font-weight:400;text-transform:none">（未選択 = 自動割当）</span></div>
+      <div class="person-checks">${pplChecks||'<span style="font-size:.78rem;color:#9CA3AF">担当者を先に追加してください</span>'}</div>
+    </div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:6px">
+      <label class="chk-item" style="font-size:.8rem">
+        <input type="checkbox" data-pf="requireAll" data-ri="${rIdx}" data-ii="${iIdx}" data-pj="${pIdx}" ${ph.requireAll?'checked':''}> 全員同時着手
+      </label>
+      <label class="chk-item" style="font-size:.8rem">
+        <input type="checkbox" data-pf="background" data-ri="${rIdx}" data-ii="${iIdx}" data-pj="${pIdx}" ${ph.background?'checked':''}> バックグラウンド
+      </label>
+    </div>
+    ${hasFixed
+      ? `<div class="fg" style="margin-bottom:0"><label>固定開始日</label>
+          <input type="date" value="${ph.fixedStart}" data-pf="fixedStart" data-ri="${rIdx}" data-ii="${iIdx}" data-pj="${pIdx}">
+        </div>`
+      : `<button class="btn btn-secondary btn-sm" style="font-size:.73rem"
+          data-add-fixed-ri="${rIdx}" data-add-fixed-ii="${iIdx}" data-add-fixed-pj="${pIdx}">＋ 固定開始日を設定</button>`
+    }
+  </div>`;
 }
 
-function wirePhaseEvents(el) {
-  // Phase field changes
-  el.querySelectorAll('[data-pf]').forEach(inp => {
-    const ev = (inp.type==='checkbox'||inp.tagName==='SELECT') ? 'change' : 'input';
+function wireReleaseEvents(el, pns, ppl) {
+  // ── リリースフィールド変更 ──
+  el.querySelectorAll('[data-rf]').forEach(inp => {
+    const ev = (inp.type === 'checkbox' || inp.type === 'color') ? 'input' : (inp.tagName === 'SELECT' ? 'change' : 'input');
     inp.addEventListener(ev, e => {
-      const ii=parseInt(e.target.dataset.pi), pj=parseInt(e.target.dataset.pj), f=e.target.dataset.pf;
-      const ph = C.items[ii].phases[pj];
-      if (inp.type==='checkbox') ph[f] = inp.checked;
-      else if (f==='days') ph[f] = parseInt(inp.value)||1;
-      else ph[f] = inp.value||null;
+      const ri = parseInt(e.target.dataset.ri);
+      const f  = e.target.dataset.rf;
+      const r  = C.releases[ri];
+      if (f === 'name')            { r.name = inp.value; }
+      else if (f === 'color')      { r.color = inp.value; }
+      else if (f === 'startDate')  { r.startDate = inp.value; }
+      else if (f === 'releaseDate'){ r.releaseDate = inp.value; }
+      else if (f === 'showEvalZone') {
+        r.showEvalZone = inp.checked;
+        el.querySelector(`.eval-zone-sub[data-ri="${ri}"]`).style.display = inp.checked ? '' : 'none';
+      }
+      else if (f === 'evalPeriodValue') { r.evalPeriod.value = parseInt(inp.value)||1; }
+      else if (f === 'evalPeriodUnit')  { r.evalPeriod.unit  = inp.value; }
+      else if (f === 'evalZoneLabel')   { r.evalZone.label   = inp.value; }
+      else if (f === 'evalZoneColor')   { r.evalZone.color   = inp.value; }
+      else if (f === 'epicKey')    { r.epicKey = inp.value; }
       render();
-      if (f==='type') renderItemsList();
+      if (['name','color'].includes(f)) renderReleasesList();
     });
   });
-  // Allowed people checkboxes
+
+  // ── リリース削除 ──
+  el.querySelectorAll('[data-del-release]').forEach(btn => btn.addEventListener('click', e => {
+    if (!confirm(`リリース「${C.releases[parseInt(e.target.dataset.delRelease)].name}」と内包するすべてのアイテムを削除しますか？`)) return;
+    C.releases.splice(parseInt(e.target.dataset.delRelease), 1);
+    render(); renderReleasesList();
+  }));
+
+  // ── アイテム追加 ──
+  el.querySelectorAll('[data-add-item-ri]').forEach(btn => btn.addEventListener('click', e => {
+    const ri = parseInt(e.target.dataset.addItemRi);
+    C.releases[ri].items.push({ name:'新規アイテム', category:'', note:'', phases:[{ type: pns[0]||'', days:5 }] });
+    render(); renderReleasesList();
+  }));
+
+  // ── アイテムフィールド変更 ──
+  el.querySelectorAll('[data-if]').forEach(inp => inp.addEventListener('input', e => {
+    const ri = parseInt(e.target.dataset.ri);
+    const ii = parseInt(e.target.dataset.ii);
+    C.releases[ri].items[ii][e.target.dataset.if] = e.target.value;
+    render();
+  }));
+
+  // ── アイテム削除 ──
+  el.querySelectorAll('[data-del-item-ri]').forEach(btn => btn.addEventListener('click', e => {
+    C.releases[parseInt(e.target.dataset.delItemRi)].items.splice(parseInt(e.target.dataset.delItemIi), 1);
+    render(); renderReleasesList();
+  }));
+
+  // ── フェーズフィールド変更 ──
+  el.querySelectorAll('[data-pf]').forEach(inp => {
+    const ev = (inp.type === 'checkbox' || inp.tagName === 'SELECT') ? 'change' : 'input';
+    inp.addEventListener(ev, e => {
+      const ri = parseInt(e.target.dataset.ri);
+      const ii = parseInt(e.target.dataset.ii);
+      const pj = parseInt(e.target.dataset.pj);
+      const f  = e.target.dataset.pf;
+      const ph = C.releases[ri].items[ii].phases[pj];
+      if (inp.type === 'checkbox') ph[f] = inp.checked;
+      else if (f === 'days')       ph[f] = parseInt(inp.value)||1;
+      else                         ph[f] = inp.value||null;
+      render();
+      if (f === 'type') renderReleasesList();
+    });
+  });
+
+  // ── 許可担当者チェックボックス ──
   el.querySelectorAll('[data-pp-p]').forEach(cb => cb.addEventListener('change', e => {
-    const ii=parseInt(e.target.dataset.pi), pj=parseInt(e.target.dataset.pj), name=e.target.dataset.ppP;
-    const ph = C.items[ii].phases[pj];
+    const ri   = parseInt(e.target.dataset.ri);
+    const ii   = parseInt(e.target.dataset.ii);
+    const pj   = parseInt(e.target.dataset.pj);
+    const name = e.target.dataset.ppP;
+    const ph   = C.releases[ri].items[ii].phases[pj];
     if (!ph.allowedPeople) ph.allowedPeople = [];
-    if (e.target.checked) { if(!ph.allowedPeople.includes(name)) ph.allowedPeople.push(name); }
+    if (e.target.checked) { if (!ph.allowedPeople.includes(name)) ph.allowedPeople.push(name); }
     else {
-      ph.allowedPeople = ph.allowedPeople.filter(n=>n!==name);
-      if (ph.allowedPeople.length===0) delete ph.allowedPeople;
+      ph.allowedPeople = ph.allowedPeople.filter(n => n !== name);
+      if (ph.allowedPeople.length === 0) delete ph.allowedPeople;
     }
     render();
   }));
-  // Phase delete
-  el.querySelectorAll('[data-del-ph-i]').forEach(btn => btn.addEventListener('click', e => {
-    C.items[parseInt(e.target.dataset.delPhI)].phases.splice(parseInt(e.target.dataset.delPhJ),1);
-    render(); renderItemsList();
+
+  // ── フェーズ追加 ──
+  el.querySelectorAll('[data-add-phase-ri]').forEach(btn => btn.addEventListener('click', e => {
+    const ri = parseInt(e.target.dataset.addPhaseRi);
+    const ii = parseInt(e.target.dataset.addPhaseIi);
+    C.releases[ri].items[ii].phases.push({ type: pns[0]||'', days:5 });
+    render(); renderReleasesList();
   }));
-  // Add fixed start
-  el.querySelectorAll('[data-add-fixed]').forEach(btn => btn.addEventListener('click', e => {
-    const [ii,pj] = e.target.dataset.addFixed.split('-').map(Number);
-    C.items[ii].phases[pj].fixedStart = C.startDate;
-    render(); renderItemsList();
+
+  // ── フェーズ削除 ──
+  el.querySelectorAll('[data-del-ph-ri]').forEach(btn => btn.addEventListener('click', e => {
+    C.releases[parseInt(e.target.dataset.delPhRi)].items[parseInt(e.target.dataset.delPhIi)].phases.splice(parseInt(e.target.dataset.delPhPj), 1);
+    render(); renderReleasesList();
+  }));
+
+  // ── 固定開始日追加 ──
+  el.querySelectorAll('[data-add-fixed-ri]').forEach(btn => btn.addEventListener('click', e => {
+    const ri = parseInt(e.target.dataset.addFixedRi);
+    const ii = parseInt(e.target.dataset.addFixedIi);
+    const pj = parseInt(e.target.dataset.addFixedPj);
+    C.releases[ri].items[ii].phases[pj].fixedStart = C.releases[ri].startDate || C.startDate;
+    render(); renderReleasesList();
   }));
 }
 
 function toggleLI(header) { header.nextElementSibling.classList.toggle('open'); }
 
-document.getElementById('btn-add-item').addEventListener('click', () => {
-  C.items.push({ name:'新規アイテム', category:'', note:'', phases:[{ type: C.phaseTypes[0]?.name||'', days:5 }] });
-  render(); renderItemsList();
+document.getElementById('btn-add-release').addEventListener('click', () => {
+  const colors = ['#6D28D9','#0369A1','#047857','#B45309','#BE123C','#0E7490'];
+  C.releases.push({
+    id:          genId(),
+    name:        `リリース${C.releases.length + 1}`,
+    color:       colors[C.releases.length % colors.length],
+    startDate:   C.startDate,
+    releaseDate: '',
+    evalPeriod:  { value: 4, unit: 'weeks' },
+    showEvalZone: true,
+    evalZone:    { label: 'リリース評価', color: '#8B5CF6' },
+    epicKey:     '',
+    items:       [],
+  });
+  render(); renderReleasesList();
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -1204,7 +1496,14 @@ document.getElementById('f-json-load').addEventListener('change', e => {
   const f = e.target.files[0]; if (!f) return;
   const r = new FileReader();
   r.onload = ev => {
-    try { C = JSON.parse(ev.target.result); initAll(); render(); }
+    try {
+      const raw = JSON.parse(ev.target.result);
+      // loadConfig のマイグレーションロジックを再利用
+      localStorage.setItem('gantt-gen-cfg', JSON.stringify(raw));
+      C = loadConfig();
+      initAll();
+      render();
+    }
     catch(err) { alert('JSONの読み込みに失敗しました: '+err.message); }
   };
   r.readAsText(f); e.target.value='';
@@ -1335,7 +1634,6 @@ function initJiraTab() {
   document.getElementById('j-token').value = JC.apiToken;
   document.getElementById('j-pkey').value  = JC.projectKey;
   document.getElementById('j-proxy').value = JC.proxyUrl;
-  document.getElementById('f-epic-key').value = C.epicKey || '';
   // 保存済みの課題タイプをドロップダウンに反映
   const itSel = document.getElementById('j-issuetype');
   if (JC.issueTypeId && JC.issueTypeName) {
@@ -1632,18 +1930,20 @@ async function pushToJira() {
     return;
   }
 
+  const totalItems = C.releases.reduce((s, r) => s + r.items.length, 0);
+  if (!totalItems) {
+    alert('登録するアイテムがありません');
+    btn.disabled = false; btn.textContent = 'JIRA に登録';
+    return;
+  }
+
   let scheduled;
   try { scheduled = runSchedule(); } catch(e) {
     alert('スケジューリングエラー: ' + e.message);
     btn.disabled = false; btn.textContent = 'JIRA に登録';
     return;
   }
-  const { tasks } = scheduled;
-  if (!tasks.length) {
-    alert('登録するタスクがありません');
-    btn.disabled = false; btn.textContent = 'JIRA に登録';
-    return;
-  }
+
   logEl.innerHTML = '<div class="jira-log" id="jira-log"></div>';
   logEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   const log = document.getElementById('jira-log');
@@ -1654,87 +1954,97 @@ async function pushToJira() {
     log.prepend(d);
   };
 
-  const itemGroups = {};
-  tasks.forEach(t => { if (!itemGroups[t.itemIdx]) itemGroups[t.itemIdx] = []; itemGroups[t.itemIdx].push(t); });
+  const { tasks } = scheduled;
+
+  // タスクを releaseIdx → itemIdx でグループ化
+  const tasksByRelease = {};
+  tasks.forEach(t => {
+    if (!tasksByRelease[t.releaseIdx]) tasksByRelease[t.releaseIdx] = {};
+    if (!tasksByRelease[t.releaseIdx][t.itemIdx]) tasksByRelease[t.releaseIdx][t.itemIdx] = [];
+    tasksByRelease[t.releaseIdx][t.itemIdx].push(t);
+  });
 
   let taskCount = 0, subCount = 0, errCount = 0;
 
-  for (let iIdx = 0; iIdx < C.items.length; iIdx++) {
-    const item       = C.items[iIdx];
-    const phaseTasks = itemGroups[iIdx] || [];
-    if (!phaseTasks.length) continue;
+  for (let rIdx = 0; rIdx < C.releases.length; rIdx++) {
+    const release = C.releases[rIdx];
+    addLog(`── リリース: ${release.name} ──`);
 
-    const taskSummary   = `${iIdx + 1} ${item.name}`;
-    const totalDays     = phaseTasks.filter(t => !t.isBackground).reduce((s, t) => s + t.totalDays, 0);
-    const firstPhase    = phaseTasks.find(t => !t.isBackground && t.assignedPeople.length > 0);
-    const taskAccountId = firstPhase ? getAccountId(firstPhase.assignedPeople[0]) : null;
-    const taskDesc      = [
-      item.category ? `カテゴリ: ${item.category}` : '',
-      item.note     ? `メモ: ${item.note}`         : '',
-      `稼働日数（合計）: ${totalDays}日`,
-    ].filter(Boolean).join('\n');
+    for (let iIdx = 0; iIdx < release.items.length; iIdx++) {
+      const item       = release.items[iIdx];
+      const phaseTasks = (tasksByRelease[rIdx]?.[iIdx]) || [];
+      if (!phaseTasks.length) continue;
 
-    const extraFields = {};
-    (JC.customFields || []).forEach(f => {
-      const v = cfPayloadValue(f);
-      if (v !== undefined) extraFields[f.id] = v;
-    });
-
-    const taskBody = { fields: {
-      project:     { key: JC.projectKey },
-      summary:     taskSummary,
-      issuetype:   { name: JC.issueTypeName || 'Task' },
-      description: makeADF(taskDesc),
-      ...(C.epicKey      ? { customfield_10014: C.epicKey }              : {}), // Atlassian Cloud classic "Epic Link" field
-      ...(taskAccountId  ? { assignee: { accountId: taskAccountId } }    : {}),
-      ...extraFields,
-    }};
-
-    let taskKey;
-    try {
-      const res = await jiraApi('/issue', { method: 'POST', body: JSON.stringify(taskBody) });
-      taskKey = res.key;
-      taskCount++;
-      addLog(`✓ Task ${taskKey}: ${taskSummary}`);
-    } catch(e) {
-      errCount++;
-      addLog(`✗ Task "${taskSummary}": ${e.message}`, true);
-      continue;
-    }
-
-    for (const t of phaseTasks) {
-      const pt         = C.phaseTypes.find(x => x.name === t.phaseType);
-      const subSummary = `${t.wbsNo} ${t.phaseType} — ${t.itemName}`;
-
-      let subAccountId = null;
-      if (!t.isBackground && t.assignedPeople.length > 0) {
-        subAccountId = getAccountId(t.assignedPeople[0]);
-      }
-
-      const subDesc = [
-        pt ? `担当チーム: ${pt.team}` : '',
-        `稼働日数: ${t.totalDays}日`,
-        t.isBackground ? '（バックグラウンドタスク）' : '',
-        (t.requireAll && t.assignedPeople.length > 1)
-          ? `全担当者: ${t.assignedPeople.join(', ')}` : '',
+      const taskSummary   = `${iIdx + 1} ${item.name}`;
+      const totalDays     = phaseTasks.filter(t => !t.isBackground).reduce((s, t) => s + t.totalDays, 0);
+      const firstPhase    = phaseTasks.find(t => !t.isBackground && t.assignedPeople.length > 0);
+      const taskAccountId = firstPhase ? getAccountId(firstPhase.assignedPeople[0]) : null;
+      const taskDesc      = [
+        item.category ? `カテゴリ: ${item.category}` : '',
+        item.note     ? `メモ: ${item.note}`         : '',
+        `稼働日数（合計）: ${totalDays}日`,
       ].filter(Boolean).join('\n');
 
-      const subBody = { fields: {
+      const extraFields = {};
+      (JC.customFields || []).forEach(f => {
+        const v = cfPayloadValue(f);
+        if (v !== undefined) extraFields[f.id] = v;
+      });
+
+      const taskBody = { fields: {
         project:     { key: JC.projectKey },
-        summary:     subSummary,
-        issuetype:   { name: 'Sub-task' },
-        parent:      { key: taskKey },
-        description: makeADF(subDesc),
-        ...(subAccountId ? { assignee: { accountId: subAccountId } } : {}),
+        summary:     taskSummary,
+        issuetype:   { name: JC.issueTypeName || 'Task' },
+        description: makeADF(taskDesc),
+        ...(release.epicKey ? { customfield_10014: release.epicKey } : {}),
+        ...(taskAccountId   ? { assignee: { accountId: taskAccountId } } : {}),
+        ...extraFields,
       }};
 
+      let taskKey;
       try {
-        const res = await jiraApi('/issue', { method: 'POST', body: JSON.stringify(subBody) });
-        subCount++;
-        addLog(`  ✓ Sub-task ${res.key}: ${subSummary}`);
+        const res = await jiraApi('/issue', { method: 'POST', body: JSON.stringify(taskBody) });
+        taskKey = res.key;
+        taskCount++;
+        addLog(`✓ Task ${taskKey}: ${taskSummary}`);
       } catch(e) {
         errCount++;
-        addLog(`  ✗ Sub-task "${subSummary}": ${e.message}`, true);
+        addLog(`✗ Task "${taskSummary}": ${e.message}`, true);
+        continue;
+      }
+
+      for (const t of phaseTasks) {
+        const pt         = C.phaseTypes.find(x => x.name === t.phaseType);
+        const subSummary = `${t.wbsNo} ${t.phaseType} — ${t.itemName}`;
+        let subAccountId = null;
+        if (!t.isBackground && t.assignedPeople.length > 0) {
+          subAccountId = getAccountId(t.assignedPeople[0]);
+        }
+        const subDesc = [
+          pt ? `担当チーム: ${pt.team}` : '',
+          `稼働日数: ${t.totalDays}日`,
+          t.isBackground ? '（バックグラウンドタスク）' : '',
+          (t.requireAll && t.assignedPeople.length > 1)
+            ? `全担当者: ${t.assignedPeople.join(', ')}` : '',
+        ].filter(Boolean).join('\n');
+
+        const subBody = { fields: {
+          project:     { key: JC.projectKey },
+          summary:     subSummary,
+          issuetype:   { name: 'Sub-task' },
+          parent:      { key: taskKey },
+          description: makeADF(subDesc),
+          ...(subAccountId ? { assignee: { accountId: subAccountId } } : {}),
+        }};
+
+        try {
+          const res = await jiraApi('/issue', { method: 'POST', body: JSON.stringify(subBody) });
+          subCount++;
+          addLog(`  ✓ Sub-task ${res.key}: ${subSummary}`);
+        } catch(e) {
+          errCount++;
+          addLog(`  ✗ Sub-task "${subSummary}": ${e.message}`, true);
+        }
       }
     }
   }
@@ -1820,8 +2130,6 @@ document.getElementById('j-email').addEventListener('input', e => { JC.email    
 document.getElementById('j-token').addEventListener('input', e => { JC.apiToken   = e.target.value.trim(); saveJiraConfig(); });
 document.getElementById('j-pkey').addEventListener('input',  e => { JC.projectKey = e.target.value.trim().toUpperCase(); saveJiraConfig(); });
 document.getElementById('j-proxy').addEventListener('input', e => { JC.proxyUrl   = e.target.value.trim(); saveJiraConfig(); });
-document.getElementById('f-epic-key').addEventListener('input', e => { C.epicKey  = e.target.value.trim(); saveConfig(); });
-
 // ── PNG エクスポート ──
 document.getElementById('btn-png').addEventListener('click', async () => {
   const btn = document.getElementById('btn-png');
@@ -1860,7 +2168,7 @@ function initAll() {
   renderHolTags();
   renderPhaseTypesList();
   renderPeopleList();
-  renderItemsList();
+  renderReleasesList();
   initJiraTab();
 }
 initAll();
