@@ -1333,11 +1333,11 @@ function phaseForm(rIdx, iIdx, pIdx, ph, pns, ppl) {
   <div class="phase-wrap">
     <div class="phase-head">
       <select data-pf="type" data-ri="${rIdx}" data-ii="${iIdx}" data-pj="${pIdx}"
-        style="flex:1;padding:6px 8px;border:1px solid #D1D5DB;border-radius:5px;font-size:.82rem">${typeOpts}</select>
+        style="flex:1 1 0;min-width:0;padding:6px 8px;border:1px solid #D1D5DB;border-radius:5px;font-size:.82rem">${typeOpts}</select>
       <input type="number" min="1" value="${ph.days}" data-pf="days" data-ri="${rIdx}" data-ii="${iIdx}" data-pj="${pIdx}"
-        style="width:65px;padding:6px 8px;border:1px solid #D1D5DB;border-radius:5px;font-size:.82rem">
-      <span style="font-size:.75rem;color:#9CA3AF">日</span>
-      <button type="button" class="btn btn-danger" data-del-ph-ri="${rIdx}" data-del-ph-ii="${iIdx}" data-del-ph-pj="${pIdx}" onclick="event.stopPropagation()">×</button>
+        style="flex-shrink:0;width:60px;padding:6px 8px;border:1px solid #D1D5DB;border-radius:5px;font-size:.82rem">
+      <span style="flex-shrink:0;font-size:.75rem;color:#9CA3AF">日</span>
+      <button type="button" class="btn btn-danger" data-del-ph-ri="${rIdx}" data-del-ph-ii="${iIdx}" data-del-ph-pj="${pIdx}" onclick="event.stopPropagation()" style="flex-shrink:0">×</button>
     </div>
     <div style="margin-bottom:7px">
       <div class="fg-label">許可担当者 <span style="color:#9CA3AF;font-weight:400;text-transform:none">（未選択 = 自動割当）</span></div>
