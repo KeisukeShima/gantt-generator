@@ -1393,15 +1393,15 @@ function renderCustomFields() {
       input = `<input type="text" class="jcf-search" data-idx="${i}" placeholder="絞り込み…" style="${searchStyle}">
                <select class="jcf-inp" data-idx="${i}" style="${selStyle}"><option value="">-- 選択 --</option>${opts}</select>`;
     } else if (kind === 'user' || kind === 'user_array') {
-      if (jiraUsers.length === 0) {
-        input = `<p style="font-size:.78rem;color:#F59E0B;margin:4px 0">先に「JIRA ユーザー取得」を実行してください。</p>`;
-      } else {
-        const opts = jiraUsers.map(u =>
-          `<option value="${esc(u.accountId)}" ${f.value === u.accountId ? 'selected' : ''}>${esc(u.displayName)}${u.emailAddress ? ' (' + esc(u.emailAddress) + ')' : ''}</option>`
-        ).join('');
-        input = `<input type="text" class="jcf-search" data-idx="${i}" placeholder="名前・メールで絞り込み…" style="${searchStyle}">
-                 <select class="jcf-inp" data-idx="${i}" style="${selStyle}"><option value="">-- 選択 --</option>${opts}</select>`;
-      }
+      const displayName = f.valueLabel ?? '';
+      input = `<div class="jcf-user-picker" data-idx="${i}" style="position:relative">
+        <input type="text" class="jcf-user-search" data-idx="${i}"
+          value="${esc(displayName)}"
+          placeholder="名前・メールで検索…"
+          autocomplete="off"
+          style="width:100%;padding:7px 9px;border:1px solid #D1D5DB;border-radius:6px;font-size:.84rem;box-sizing:border-box">
+        <div class="jcf-user-results" data-idx="${i}" style="display:none;position:absolute;z-index:99;left:0;right:0;background:#fff;border:1px solid #D1D5DB;border-top:none;border-radius:0 0 6px 6px;max-height:180px;overflow-y:auto;box-shadow:0 4px 8px rgba(0,0,0,.1)"></div>
+      </div>`;
     } else {
       input = `<input type="text" class="jcf-inp" data-idx="${i}" value="${esc(f.value ?? '')}" placeholder="値を入力" style="width:100%;padding:7px 9px;border:1px solid #D1D5DB;border-radius:6px;font-size:.84rem;box-sizing:border-box">`;
     }
@@ -1414,7 +1414,7 @@ function renderCustomFields() {
     </div>`;
   }).join('');
 
-  // 検索フィルター
+  // option型 検索フィルター
   container.querySelectorAll('.jcf-search').forEach(search => {
     const sel = container.querySelector(`select.jcf-inp[data-idx="${search.dataset.idx}"]`);
     search.addEventListener('input', () => {
@@ -1425,11 +1425,61 @@ function renderCustomFields() {
     });
   });
 
-  // 値の保存
+  // option型 値の保存
   container.querySelectorAll('.jcf-inp').forEach(el => {
     const save = e => { JC.customFields[+e.target.dataset.idx].value = e.target.value || null; saveJiraConfig(); };
     el.addEventListener('change', save);
     el.addEventListener('input', save);
+  });
+
+  // user型 ライブ検索
+  container.querySelectorAll('.jcf-user-search').forEach(input => {
+    const idx = +input.dataset.idx;
+    const results = container.querySelector(`.jcf-user-results[data-idx="${idx}"]`);
+    let debounce;
+
+    input.addEventListener('input', () => {
+      clearTimeout(debounce);
+      const q = input.value.trim();
+      if (!q) { results.style.display = 'none'; return; }
+      debounce = setTimeout(async () => {
+        try {
+          const data = await jiraApi(`/user/picker?query=${encodeURIComponent(q)}&maxResults=10`);
+          const users = data.users ?? [];
+          if (!users.length) { results.style.display = 'none'; return; }
+          results.innerHTML = users.map(u =>
+            `<div class="jcf-user-opt" data-account="${esc(u.accountId)}" data-name="${esc(u.displayName)}"
+              style="padding:7px 10px;cursor:pointer;font-size:.84rem;border-bottom:1px solid #F3F4F6">
+              ${esc(u.displayName)}
+            </div>`
+          ).join('');
+          results.style.display = '';
+          results.querySelectorAll('.jcf-user-opt').forEach(opt => {
+            opt.addEventListener('mouseenter', () => opt.style.background = '#F3F4F6');
+            opt.addEventListener('mouseleave', () => opt.style.background = '');
+            opt.addEventListener('mousedown', e => {
+              e.preventDefault();
+              JC.customFields[idx].value      = opt.dataset.account;
+              JC.customFields[idx].valueLabel = opt.dataset.name;
+              saveJiraConfig();
+              input.value = opt.dataset.name;
+              results.style.display = 'none';
+            });
+          });
+        } catch { results.style.display = 'none'; }
+      }, 300);
+    });
+
+    input.addEventListener('blur', () => setTimeout(() => { results.style.display = 'none'; }, 150));
+
+    // 入力をクリアしたら値もクリア
+    input.addEventListener('change', () => {
+      if (!input.value.trim()) {
+        JC.customFields[idx].value      = null;
+        JC.customFields[idx].valueLabel = null;
+        saveJiraConfig();
+      }
+    });
   });
 }
 
@@ -1757,7 +1807,6 @@ document.getElementById('btn-jira-users').addEventListener('click', async () => 
   try {
     jiraUsers = await fetchJiraAssignableUsers(n => { btn.textContent = `取得中… ${n}名`; });
     renderJiraPeopleMap();
-    renderCustomFields(); // user型カスタムフィールドの選択肢も更新
     btn.textContent = `${jiraUsers.length} 名取得 ✓`;
     setTimeout(() => { btn.textContent = 'JIRA ユーザー取得'; btn.disabled = false; }, 2000);
   } catch(e) {
