@@ -328,7 +328,6 @@ const DEFAULT_CONFIG = {
     },
   ],
   epicKey:   '',
-  evalPhase: { name: 'リリース評価', color: '#8B5CF6' },
 };
 
 // ═══════════════════════════════════════════════════════════
@@ -352,7 +351,9 @@ function saveJiraConfig() {
 function loadConfig() {
   try {
     const s = localStorage.getItem('gantt-gen-cfg');
-    return s ? JSON.parse(s) : JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    const c = s ? JSON.parse(s) : JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    delete c.evalPhase; // 旧バージョンの設定キーを除去
+    return c;
   } catch { return JSON.parse(JSON.stringify(DEFAULT_CONFIG)); }
 }
 function saveConfig() {
@@ -596,8 +597,7 @@ function renderGantt(scheduled) {
   });
 
   const bodyH = rows.length * ROW_H + PAD;
-  const evalRowY = HDR_H + bodyH;
-  const totalH = evalRowY + ROW_H + PAD;
+  const totalH = HDR_H + bodyH;
 
   const phaseColor = {};
   C.phaseTypes.forEach(pt => phaseColor[pt.name] = pt.color);
@@ -627,7 +627,7 @@ function renderGantt(scheduled) {
   const evalX2 = LW + dateToX(evalEnd, vStart, unit);
   g += `<rect x="${evalX1}" y="0" width="${evalX2-evalX1}" height="${totalH}" fill="#8B5CF6" opacity=".06"/>`;
   g += `<line x1="${evalX1}" y1="0" x2="${evalX1}" y2="${totalH}" stroke="#8B5CF6" stroke-width="1.5" stroke-dasharray="4,3" opacity=".5"/>`;
-  g += `<text x="${evalX1+4}" y="14" fill="#7C3AED" font-size="9.5" font-weight="700" font-family="sans-serif">${esc(C.evalPhase.name)}</text>`;
+  g += `<text x="${evalX1+4}" y="14" fill="#7C3AED" font-size="9.5" font-weight="700" font-family="sans-serif">リリース評価</text>`;
 
   // ── Column grid lines & header labels ──
   g += `<rect x="0" y="22" width="${totalW}" height="${HDR_H-22}" fill="#F3F4F6"/>`;
@@ -710,13 +710,6 @@ function renderGantt(scheduled) {
     }
   });
 
-  // ── Eval bar ──
-  g += `<line x1="0" y1="${evalRowY}" x2="${totalW}" y2="${evalRowY}" stroke="#E5E7EB" stroke-width="1"/>`;
-  g += `<text x="10" y="${evalRowY+ROW_H/2+4}" fill="#7C3AED" font-size="10" font-weight="700" font-family="sans-serif">${esc(C.evalPhase.name)}</text>`;
-  const ebx = LW + dateToX(evalStart, vStart, unit);
-  const ebw = Math.max(dateToX(evalEnd, vStart, unit) - dateToX(evalStart, vStart, unit), 4);
-  g += `<rect x="${ebx}" y="${evalRowY+4}" width="${ebw}" height="${ROW_H-8}" rx="3" fill="${C.evalPhase.color}" opacity=".8"/>`;
-
   // ── Today line ──
   const today = new Date();
   if (today >= vStart && today <= vEnd) {
@@ -728,7 +721,7 @@ function renderGantt(scheduled) {
   // White bg for label area
   g = `<rect x="0" y="0" width="${totalW}" height="${totalH}" fill="#fff"/>` + g;
   // Freeze label column visually
-  g += `<rect x="0" y="${HDR_H}" width="${LW}" height="${bodyH+ROW_H+PAD}" fill="rgba(255,255,255,0)"/>`;
+  g += `<rect x="0" y="${HDR_H}" width="${LW}" height="${bodyH}" fill="rgba(255,255,255,0)"/>`;
 
   const svg = document.getElementById('gantt');
   svg.setAttribute('width',  Math.ceil(totalW));
@@ -741,7 +734,6 @@ function renderGantt(scheduled) {
   C.phaseTypes.forEach(pt => {
     leg += `<div class="legend-item"><div class="legend-sw" style="background:${pt.color}"></div>${esc(pt.name)}</div>`;
   });
-  leg += `<div class="legend-item"><div class="legend-sw" style="background:${C.evalPhase.color}"></div>${esc(C.evalPhase.name)}</div>`;
   document.getElementById('legend').innerHTML = leg;
 }
 
@@ -766,11 +758,6 @@ function renderTable(scheduled) {
       <td>${biz}</td>
     </tr>`;
   });
-  h += `<tr class="erow">
-    <td><strong>${esc(C.evalPhase.name)}</strong></td><td>—</td>
-    <td>${fmtJP(evalStart)}</td><td>${fmtJP(evalEnd)}</td>
-    <td>${countBiz(evalStart,evalEnd,hols)}</td>
-  </tr>`;
   document.getElementById('tbody').innerHTML = h;
 }
 
