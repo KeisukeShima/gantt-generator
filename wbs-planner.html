@@ -1337,7 +1337,7 @@ function phaseForm(rIdx, iIdx, pIdx, ph, pns, ppl) {
       <input type="number" min="1" value="${ph.days}" data-pf="days" data-ri="${rIdx}" data-ii="${iIdx}" data-pj="${pIdx}"
         style="width:65px;padding:6px 8px;border:1px solid #D1D5DB;border-radius:5px;font-size:.82rem">
       <span style="font-size:.75rem;color:#9CA3AF">日</span>
-      <button class="btn btn-danger" data-del-ph-ri="${rIdx}" data-del-ph-ii="${iIdx}" data-del-ph-pj="${pIdx}">×</button>
+      <button type="button" class="btn btn-danger" data-del-ph-ri="${rIdx}" data-del-ph-ii="${iIdx}" data-del-ph-pj="${pIdx}" onclick="event.stopPropagation()">×</button>
     </div>
     <div style="margin-bottom:7px">
       <div class="fg-label">許可担当者 <span style="color:#9CA3AF;font-weight:400;text-transform:none">（未選択 = 自動割当）</span></div>
@@ -1404,41 +1404,44 @@ function wireReleaseEvents(el, pns, ppl) {
   });
 
   // ── リリース削除 ──
-  el.querySelectorAll('[data-del-release]').forEach(btn => btn.addEventListener('click', e => {
-    if (!confirm(`リリース「${C.releases[parseInt(e.target.dataset.delRelease)].name}」と内包するすべてのアイテムを削除しますか？`)) return;
-    C.releases.splice(parseInt(e.target.dataset.delRelease), 1);
+  el.querySelectorAll('[data-del-release]').forEach(btn => btn.addEventListener('click', () => {
+    const ri = parseInt(btn.dataset.delRelease);
+    if (!confirm(`リリース「${C.releases[ri].name}」と内包するすべてのアイテムを削除しますか？`)) return;
+    C.releases.splice(ri, 1);
     render(); renderReleasesList();
   }));
 
   // ── アイテム追加 ──
-  el.querySelectorAll('[data-add-item-ri]').forEach(btn => btn.addEventListener('click', e => {
-    const ri = parseInt(e.target.dataset.addItemRi);
+  el.querySelectorAll('[data-add-item-ri]').forEach(btn => btn.addEventListener('click', () => {
+    const ri = parseInt(btn.dataset.addItemRi);
     C.releases[ri].items.push({ name:'新規アイテム', category:'', note:'', phases:[{ type: pns[0]||'', days:5 }] });
     render(); renderReleasesList();
   }));
 
   // ── アイテムフィールド変更 ──
-  el.querySelectorAll('[data-if]').forEach(inp => inp.addEventListener('input', e => {
-    const ri = parseInt(e.target.dataset.ri);
-    const ii = parseInt(e.target.dataset.ii);
-    C.releases[ri].items[ii][e.target.dataset.if] = e.target.value;
+  el.querySelectorAll('[data-if]').forEach(inp => inp.addEventListener('input', () => {
+    const ri = parseInt(inp.dataset.ri);
+    const ii = parseInt(inp.dataset.ii);
+    C.releases[ri].items[ii][inp.dataset.if] = inp.value;
     render();
   }));
 
   // ── アイテム削除 ──
-  el.querySelectorAll('[data-del-item-ri]').forEach(btn => btn.addEventListener('click', e => {
-    C.releases[parseInt(e.target.dataset.delItemRi)].items.splice(parseInt(e.target.dataset.delItemIi), 1);
+  el.querySelectorAll('[data-del-item-ri]').forEach(btn => btn.addEventListener('click', () => {
+    const ri = parseInt(btn.dataset.delItemRi);
+    const ii = parseInt(btn.dataset.delItemIi);
+    C.releases[ri].items.splice(ii, 1);
     render(); renderReleasesList();
   }));
 
   // ── フェーズフィールド変更 ──
   el.querySelectorAll('[data-pf]').forEach(inp => {
     const ev = (inp.type === 'checkbox' || inp.tagName === 'SELECT') ? 'change' : 'input';
-    inp.addEventListener(ev, e => {
-      const ri = parseInt(e.target.dataset.ri);
-      const ii = parseInt(e.target.dataset.ii);
-      const pj = parseInt(e.target.dataset.pj);
-      const f  = e.target.dataset.pf;
+    inp.addEventListener(ev, () => {
+      const ri = parseInt(inp.dataset.ri);
+      const ii = parseInt(inp.dataset.ii);
+      const pj = parseInt(inp.dataset.pj);
+      const f  = inp.dataset.pf;
       const ph = C.releases[ri].items[ii].phases[pj];
       if (inp.type === 'checkbox') ph[f] = inp.checked;
       else if (f === 'days')       ph[f] = parseInt(inp.value)||1;
@@ -1449,14 +1452,14 @@ function wireReleaseEvents(el, pns, ppl) {
   });
 
   // ── 許可担当者チェックボックス ──
-  el.querySelectorAll('[data-pp-p]').forEach(cb => cb.addEventListener('change', e => {
-    const ri   = parseInt(e.target.dataset.ri);
-    const ii   = parseInt(e.target.dataset.ii);
-    const pj   = parseInt(e.target.dataset.pj);
-    const name = e.target.dataset.ppP;
+  el.querySelectorAll('[data-pp-p]').forEach(cb => cb.addEventListener('change', () => {
+    const ri   = parseInt(cb.dataset.ri);
+    const ii   = parseInt(cb.dataset.ii);
+    const pj   = parseInt(cb.dataset.pj);
+    const name = cb.dataset.ppP;
     const ph   = C.releases[ri].items[ii].phases[pj];
     if (!ph.allowedPeople) ph.allowedPeople = [];
-    if (e.target.checked) { if (!ph.allowedPeople.includes(name)) ph.allowedPeople.push(name); }
+    if (cb.checked) { if (!ph.allowedPeople.includes(name)) ph.allowedPeople.push(name); }
     else {
       ph.allowedPeople = ph.allowedPeople.filter(n => n !== name);
       if (ph.allowedPeople.length === 0) delete ph.allowedPeople;
@@ -1465,24 +1468,27 @@ function wireReleaseEvents(el, pns, ppl) {
   }));
 
   // ── フェーズ追加 ──
-  el.querySelectorAll('[data-add-phase-ri]').forEach(btn => btn.addEventListener('click', e => {
-    const ri = parseInt(e.target.dataset.addPhaseRi);
-    const ii = parseInt(e.target.dataset.addPhaseIi);
+  el.querySelectorAll('[data-add-phase-ri]').forEach(btn => btn.addEventListener('click', () => {
+    const ri = parseInt(btn.dataset.addPhaseRi);
+    const ii = parseInt(btn.dataset.addPhaseIi);
     C.releases[ri].items[ii].phases.push({ type: pns[0]||'', days:5 });
     render(); renderReleasesList();
   }));
 
   // ── フェーズ削除 ──
-  el.querySelectorAll('[data-del-ph-ri]').forEach(btn => btn.addEventListener('click', e => {
-    C.releases[parseInt(e.target.dataset.delPhRi)].items[parseInt(e.target.dataset.delPhIi)].phases.splice(parseInt(e.target.dataset.delPhPj), 1);
+  el.querySelectorAll('[data-del-ph-ri]').forEach(btn => btn.addEventListener('click', () => {
+    const ri = parseInt(btn.dataset.delPhRi);
+    const ii = parseInt(btn.dataset.delPhIi);
+    const pj = parseInt(btn.dataset.delPhPj);
+    C.releases[ri].items[ii].phases.splice(pj, 1);
     render(); renderReleasesList();
   }));
 
   // ── 固定開始日追加 ──
-  el.querySelectorAll('[data-add-fixed-ri]').forEach(btn => btn.addEventListener('click', e => {
-    const ri = parseInt(e.target.dataset.addFixedRi);
-    const ii = parseInt(e.target.dataset.addFixedIi);
-    const pj = parseInt(e.target.dataset.addFixedPj);
+  el.querySelectorAll('[data-add-fixed-ri]').forEach(btn => btn.addEventListener('click', () => {
+    const ri = parseInt(btn.dataset.addFixedRi);
+    const ii = parseInt(btn.dataset.addFixedIi);
+    const pj = parseInt(btn.dataset.addFixedPj);
     C.releases[ri].items[ii].phases[pj].fixedStart = C.releases[ri].startDate || C.startDate;
     render(); renderReleasesList();
   }));
