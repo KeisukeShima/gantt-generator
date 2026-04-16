@@ -1129,11 +1129,28 @@ function renderPhaseTypesList() {
     const ev = inp.type==='color' ? 'input' : 'change';
     inp.addEventListener(ev, e => {
       const i=parseInt(e.target.dataset.pt), f=e.target.dataset.f;
-      C.phaseTypes[i][f] = e.target.type==='checkbox' ? e.target.checked : e.target.value;
+      if (f === 'name') {
+        const oldName = C.phaseTypes[i].name;
+        const newName = e.target.value;
+        C.phaseTypes[i].name = newName;
+        if (oldName !== newName) {
+          // 全リリースの全フェーズの phase.type を追従
+          C.releases.forEach(r =>
+            r.items.forEach(item =>
+              item.phases.forEach(ph => { if (ph.type === oldName) ph.type = newName; })
+            )
+          );
+          // 担当者の担当可能工程リストも追従
+          C.people.forEach(p => {
+            p.phases = p.phases.map(n => n === oldName ? newName : n);
+          });
+        }
+      } else {
+        C.phaseTypes[i][f] = e.target.type==='checkbox' ? e.target.checked : e.target.value;
+      }
       render();
-      // 工程「名」変更時のみ他リストの表示を更新（色・チーム変更は不要）
       if (f === 'name') { renderPhaseTypesList(); renderPeopleList(); renderReleasesList(); }
-      else { renderPhaseTypesList(); } // カラー表示だけ更新
+      else { renderPhaseTypesList(); }
     });
   });
   el.querySelectorAll('[data-del-pt]').forEach(btn => btn.addEventListener('click', e => {
