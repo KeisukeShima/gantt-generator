@@ -523,6 +523,7 @@ function runSchedule() {
           daysWorked:     0,
           assignedPeople: [],
           hasConflict:    false,
+          actualDays:     phase.days, // 稼働率適用後の実消費日数（担当者確定時に上書き）
         });
         remaining -= phase.days;
       });
@@ -566,6 +567,8 @@ function runSchedule() {
   const limit = addDays(latestRelease, 365);
 
   let d = new Date(_start);
+  let stalledDays = 0;
+  const MAX_STALLED = 30;
 
   while (d <= limit) {
     if (!isBiz(d, hols)) { d = addDays(d, 1); continue; }
@@ -575,8 +578,15 @@ function runSchedule() {
       if (t.isFixed && t.status === 'waiting' && +t.fixedStartDate === +d) {
         const assigned = pickPeople(t, d);
         t.status = 'inProgress'; t.startDate = new Date(d);
-        if (assigned) { t.assignedPeople = assigned; assigned.forEach(n => personBusy[n]++); }
-        else {
+        if (assigned) {
+          t.assignedPeople = assigned;
+          const utils = assigned.map(n => {
+            const p = C.people.find(x => x.name === n);
+            return (p && p.utilization > 0) ? p.utilization : 1.0;
+          });
+          t.actualDays = Math.ceil(t.totalDays / Math.min(...utils));
+          assigned.forEach(n => personBusy[n]++);
+        } else {
           const phase = C.releases[t.releaseIdx].items[t.itemIdx].phases[t.phaseIdx];
           const fb = phase.allowedPeople ? phase.allowedPeople[0] : null;
           t.assignedPeople = fb ? [fb + '(要調整)'] : [];
@@ -607,25 +617,43 @@ function runSchedule() {
     for (const t of ready) {
       if (t.isBackground) {
         t.status = 'inProgress'; t.startDate = new Date(d); t.assignedPeople = [];
+        // background タスクは稼働率の影響なし。actualDays は tasks.push 時の初期値（= phase.days）をそのまま使う
       } else {
         const assigned = pickPeople(t, d);
         if (assigned) {
           t.status = 'inProgress'; t.startDate = new Date(d);
           t.assignedPeople = assigned;
+          const utils = assigned.map(n => {
+            const p = C.people.find(x => x.name === n);
+            return (p && p.utilization > 0) ? p.utilization : 1.0;
+          });
+          t.actualDays = Math.ceil(t.totalDays / Math.min(...utils));
           assigned.forEach(n => personBusy[n]++);
         }
       }
     }
 
-    // 作業実行 & 完了判定
+    // 作業実行 & 完了判定（actualDays ベース）
     for (const t of tasks) {
       if (t.status === 'inProgress') {
         t.daysWorked++;
-        if (t.daysWorked >= t.totalDays) {
+        if (t.daysWorked >= t.actualDays) {
           t.status = 'complete'; t.endDate = new Date(d);
           if (!t.isBackground) t.assignedPeople.forEach(n => { if (n in personBusy) personBusy[n]--; });
         }
       }
+    }
+
+    // ── ストール検知: ready タスクがあるが今日一件も着手できなかった日が続く場合は中断 ──
+    const newStartCount = tasks.filter(t =>
+      t.status === 'inProgress' && t.startDate?.getTime() === d.getTime()
+    ).length;
+    const readyRemaining = tasks.filter(t => t.status === 'ready').length;
+    if (readyRemaining > 0 && newStartCount === 0) {
+      stalledDays++;
+      if (stalledDays >= MAX_STALLED) break;
+    } else {
+      stalledDays = 0;
     }
 
     if (tasks.every(t => t.status === 'complete')) break;
