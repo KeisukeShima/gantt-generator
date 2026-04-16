@@ -254,6 +254,7 @@ tbody tr.erow td{background:#FAF5FF}
     <button class="btn btn-secondary" id="btn-png">PNG 出力</button>
     <button class="btn btn-secondary" id="btn-json-save">JSON 保存</button>
     <label class="btn btn-secondary" style="cursor:pointer">JSON 読込<input type="file" id="f-json-load" accept=".json" style="display:none"></label>
+    <button class="btn btn-secondary" id="btn-undo" disabled>↩ 元に戻す</button>
   </div>
 </aside>
 
@@ -354,6 +355,11 @@ const DEFAULT_CONFIG = {
 //  STATE
 // ═══════════════════════════════════════════════════════════
 let C = loadConfig();
+let _undoSnapshot = null;
+function updateUndoBtn() {
+  const btn = document.getElementById('btn-undo');
+  if (btn) btn.disabled = !_undoSnapshot;
+}
 
 // ── JIRA 接続設定（プロジェクト設定 C とは別に保管）──
 const DEFAULT_JIRA_CONFIG = { siteUrl: '', email: '', apiToken: '', projectKey: '', proxyUrl: '', customFields: [] };
@@ -1502,6 +1508,8 @@ function wireReleaseEvents(el, pns, ppl) {
   el.querySelectorAll('[data-del-release]').forEach(btn => btn.addEventListener('click', () => {
     const ri = parseInt(btn.dataset.delRelease);
     if (!confirm(`リリース「${C.releases[ri].name}」と内包するすべてのアイテムを削除しますか？`)) return;
+    _undoSnapshot = JSON.stringify(C);
+    updateUndoBtn();
     C.releases.splice(ri, 1);
     render(); renderReleasesList();
   }));
@@ -1536,6 +1544,8 @@ function wireReleaseEvents(el, pns, ppl) {
   el.querySelectorAll('[data-del-item-ri]').forEach(btn => btn.addEventListener('click', () => {
     const ri = parseInt(btn.dataset.delItemRi);
     const ii = parseInt(btn.dataset.delItemIi);
+    _undoSnapshot = JSON.stringify(C);
+    updateUndoBtn();
     C.releases[ri].items.splice(ii, 1);
     render(); renderReleasesList();
   }));
@@ -1586,6 +1596,8 @@ function wireReleaseEvents(el, pns, ppl) {
     const ri = parseInt(btn.dataset.delPhRi);
     const ii = parseInt(btn.dataset.delPhIi);
     const pj = parseInt(btn.dataset.delPhPj);
+    _undoSnapshot = JSON.stringify(C);
+    updateUndoBtn();
     C.releases[ri].items[ii].phases.splice(pj, 1);
     render(); renderReleasesList();
   }));
@@ -2330,6 +2342,14 @@ function dl(data, name, type) {
 function loadScript(src) {
   return new Promise((res,rej) => { const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej; document.head.appendChild(s); });
 }
+
+document.getElementById('btn-undo').addEventListener('click', () => {
+  if (!_undoSnapshot) return;
+  C = JSON.parse(_undoSnapshot);
+  _undoSnapshot = null;
+  updateUndoBtn();
+  initAll(); render();
+});
 
 // ═══════════════════════════════════════════════════════════
 //  INIT
