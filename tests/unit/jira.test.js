@@ -265,6 +265,30 @@ describe('buildTaskBody', () => {
     const allText = textNodes.map(n => n.text).join('');
     expect(allText).toContain('稼働日数（合計）: 0日');
   });
+
+  it('sets startDate and duedate from the earliest/latest dates across phaseTasks', () => {
+    const tasks = [
+      { ...basePhaseTask, startDate: new Date(2026, 3, 5),  endDate: new Date(2026, 3, 15) },
+      { ...basePhaseTask, startDate: new Date(2026, 3, 1),  endDate: new Date(2026, 3, 20) },
+    ];
+    const body = buildTaskBody(baseItem, 0, tasks, baseRelease, baseJC, basePeople);
+    expect(body.fields.startDate).toBe('2026-04-01');
+    expect(body.fields.duedate).toBe('2026-04-20');
+  });
+
+  it('omits startDate and duedate when all phaseTasks have null dates', () => {
+    const tasks = [{ ...basePhaseTask, startDate: null, endDate: null }];
+    const body = buildTaskBody(baseItem, 0, tasks, baseRelease, baseJC, basePeople);
+    expect(body.fields).not.toHaveProperty('startDate');
+    expect(body.fields).not.toHaveProperty('duedate');
+  });
+
+  it('sets startDate only when all endDates are null', () => {
+    const tasks = [{ ...basePhaseTask, startDate: new Date(2026, 3, 1), endDate: null }];
+    const body = buildTaskBody(baseItem, 0, tasks, baseRelease, baseJC, basePeople);
+    expect(body.fields.startDate).toBe('2026-04-01');
+    expect(body.fields).not.toHaveProperty('duedate');
+  });
 });
 
 // ─── buildSubTaskBody ─────────────────────────────────────────────────────────

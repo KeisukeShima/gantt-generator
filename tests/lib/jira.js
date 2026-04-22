@@ -75,13 +75,20 @@ export function buildTaskBody(item, itemIndex, phaseTasks, release, jc, people) 
     if (v !== undefined) extraFields[f.id] = v;
   });
 
+  const starts    = phaseTasks.map(t => t.startDate).filter(Boolean);
+  const ends      = phaseTasks.map(t => t.endDate).filter(Boolean);
+  const taskStart = starts.length ? new Date(Math.min(...starts.map(d => d.getTime()))) : null;
+  const taskEnd   = ends.length   ? new Date(Math.max(...ends.map(d => d.getTime())))   : null;
+
   return { fields: {
     project:     { key: jc.projectKey },
     summary:     taskSummary,
     issuetype:   { name: jc.issueTypeName || 'Task' },
     description: makeADF(taskDesc),
-    ...(release.epicKey   ? { customfield_10014: release.epicKey }          : {}),
-    ...(taskAccountId     ? { assignee: { accountId: taskAccountId } }      : {}),
+    ...(release.epicKey ? { customfield_10014: release.epicKey }          : {}),
+    ...(taskAccountId   ? { assignee: { accountId: taskAccountId } }      : {}),
+    ...(taskStart       ? { startDate: toJiraDate(taskStart) }            : {}),
+    ...(taskEnd         ? { duedate:   toJiraDate(taskEnd) }              : {}),
     ...extraFields,
   }};
 }
