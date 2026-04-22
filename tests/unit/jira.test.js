@@ -2,7 +2,7 @@
  * Unit tests for JIRA integration helpers.
  * Keep in sync with the corresponding implementations in wbs-planner.html.
  */
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   makeADF,
   cfSchemaKind,
