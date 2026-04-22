@@ -2,7 +2,7 @@
  * Unit tests for JIRA integration helpers.
  * Keep in sync with the corresponding implementations in wbs-planner.html.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   makeADF,
   cfSchemaKind,
@@ -10,6 +10,7 @@ import {
   getAccountId,
   buildTaskBody,
   buildSubTaskBody,
+  jiraApiWith,
 } from '../lib/jira.js';
 
 // ─── makeADF ─────────────────────────────────────────────────────────────────
@@ -296,5 +297,85 @@ describe('buildSubTaskBody', () => {
     const allText   = textNodes.map(n => n.text).join('');
     expect(allText).not.toContain('担当チーム');
     expect(allText).toContain('稼働日数');
+  });
+});
+
+// ─── jiraApiWith ──────────────────────────────────────────────────────────────
+
+describe('jiraApiWith', () => {
+  const validJC = {
+    siteUrl:      'https://mycompany.atlassian.net',
+    email:        'user@example.com',
+    apiToken:     'secret-token',
+    projectKey:   'PROJ',
+    proxyUrl:     '',
+    customFields: [],
+  };
+
+  let mockFetch;
+
+  beforeEach(() => {
+    mockFetch = vi.fn();
+    vi.stubGlobal('fetch', mockFetch);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('throws when siteUrl is empty', async () => {
+    const jc = { ...validJC, siteUrl: '' };
+    await expect(jiraApiWith('/myself', {}, jc)).rejects.toThrow('接続設定が未入力です');
+  });
+
+  it('throws when email is empty', async () => {
+    const jc = { ...validJC, email: '' };
+    await expect(jiraApiWith('/myself', {}, jc)).rejects.toThrow('接続設定が未入力です');
+  });
+
+  it('throws when apiToken is empty', async () => {
+    const jc = { ...validJC, apiToken: '' };
+    await expect(jiraApiWith('/myself', {}, jc)).rejects.toThrow('接続設定が未入力です');
+  });
+
+  it('resolves with parsed JSON on a 200 response', async () => {
+    const mockData = { displayName: 'Test User' };
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => mockData });
+    const result = await jiraApiWith('/myself', {}, validJC);
+    expect(result).toEqual(mockData);
+  });
+
+  it('calls the direct JIRA URL when proxyUrl is empty', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+    await jiraApiWith('/myself', {}, validJC);
+    expect(mockFetch.mock.calls[0][0])
+      .toBe('https://mycompany.atlassian.net/rest/api/3/myself');
+  });
+
+  it('uses proxy URL and sets X-Jira-Site header when proxyUrl is configured', async () => {
+    const jc = { ...validJC, proxyUrl: 'http://localhost:8001' };
+    mockFetch.mockResolvedValueOnce({ ok: true, json: async () => ({}) });
+    await jiraApiWith('/myself', {}, jc);
+    const [calledUrl, calledOpts] = mockFetch.mock.calls[0];
+    expect(calledUrl).toBe('http://localhost:8001/rest/api/3/myself');
+    expect(calledOpts.headers['X-Jira-Site'])
+      .toBe('https://mycompany.atlassian.net');
+  });
+
+  it('throws "HTTP 401" when response status is 401 and body is unreadable', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false, status: 401,
+      json: async () => { throw new Error('no body'); },
+    });
+    await expect(jiraApiWith('/myself', {}, validJC)).rejects.toThrow('HTTP 401');
+  });
+
+  it('throws with JIRA errorMessages when the error response contains them', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false, status: 400,
+      json: async () => ({ errorMessages: ['Project does not exist'] }),
+    });
+    await expect(jiraApiWith('/issue', {}, validJC))
+      .rejects.toThrow('Project does not exist');
   });
 });

@@ -107,3 +107,46 @@ export function buildSubTaskBody(task, taskKey, phaseType, jc, people) {
     ...(subAccountId ? { assignee: { accountId: subAccountId } } : {}),
   }};
 }
+
+// ─── jiraApiWith (wbs-planner.html:1793) ─────────────────────────────────────
+// Parameterised version of jiraApi(): accepts jc instead of reading global JC.
+// fetch is the global — stub it with vi.stubGlobal('fetch', vi.fn()) in tests.
+
+export async function jiraApiWith(path, opts = {}, jc) {
+  if (!jc.siteUrl || !jc.email || !jc.apiToken) throw new Error('接続設定が未入力です');
+  const base = jc.siteUrl.replace(/\/$/, '');
+  const auth = btoa(`${jc.email}:${jc.apiToken}`);
+
+  let url, extraHeaders = {};
+  if (jc.proxyUrl) {
+    url = `${jc.proxyUrl.replace(/\/$/, '')}/rest/api/3${path}`;
+    extraHeaders['X-Jira-Site'] = base;
+  } else {
+    url = `${base}/rest/api/3${path}`;
+  }
+
+  const res = await fetch(url, {
+    ...opts,
+    headers: {
+      'Authorization': `Basic ${auth}`,
+      'Content-Type':  'application/json',
+      'Accept':        'application/json',
+      ...extraHeaders,
+      ...(opts.headers || {}),
+    },
+  });
+
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try {
+      const j = await res.json();
+      const parts = [];
+      if (j.errorMessages?.length) parts.push(...j.errorMessages);
+      if (j.errors) parts.push(...Object.entries(j.errors).map(([k, v]) => `${k}: ${v}`));
+      if (j.message) parts.push(j.message);
+      if (parts.length) msg = parts.join(' / ');
+    } catch {}
+    throw new Error(msg);
+  }
+  return res.json();
+}
