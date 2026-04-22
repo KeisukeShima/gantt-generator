@@ -227,6 +227,31 @@ describe('buildTaskBody', () => {
     const body = buildTaskBody(baseItem, 0, [basePhaseTask], baseRelease, jc, basePeople);
     expect(body.fields).not.toHaveProperty('customfield_123');
   });
+
+  it('includes カテゴリ in description when item.category is set', () => {
+    const item = { ...baseItem, category: '設計' };
+    const body = buildTaskBody(item, 0, [basePhaseTask], baseRelease, baseJC, basePeople);
+    const textNodes = body.fields.description.content[0].content.filter(n => n.type === 'text');
+    const allText = textNodes.map(n => n.text).join('');
+    expect(allText).toContain('カテゴリ: 設計');
+  });
+
+  it('includes メモ in description when item.note is set', () => {
+    const item = { ...baseItem, note: '要注意' };
+    const body = buildTaskBody(item, 0, [basePhaseTask], baseRelease, baseJC, basePeople);
+    const textNodes = body.fields.description.content[0].content.filter(n => n.type === 'text');
+    const allText = textNodes.map(n => n.text).join('');
+    expect(allText).toContain('メモ: 要注意');
+  });
+
+  it('omits assignee and uses totalDays=0 when all phaseTasks are background', () => {
+    const allBg = [{ isBackground: true, totalDays: 3, assignedPeople: ['Alice'] }];
+    const body = buildTaskBody(baseItem, 0, allBg, baseRelease, baseJC, basePeople);
+    expect(body.fields).not.toHaveProperty('assignee');
+    const textNodes = body.fields.description.content[0].content.filter(n => n.type === 'text');
+    const allText = textNodes.map(n => n.text).join('');
+    expect(allText).toContain('稼働日数（合計）: 0日');
+  });
 });
 
 // ─── buildSubTaskBody ─────────────────────────────────────────────────────────
