@@ -289,4 +289,12 @@ describe('buildSubTaskBody', () => {
     const allText   = textNodes.map(n => n.text).join('');
     expect(allText).not.toContain('全担当者');
   });
+
+  it('omits 担当チーム line when phaseType is null', () => {
+    const body = buildSubTaskBody(baseSubTask, 'PROJ-1', null, baseJC, basePeople);
+    const textNodes = body.fields.description.content[0].content.filter(n => n.type === 'text');
+    const allText   = textNodes.map(n => n.text).join('');
+    expect(allText).not.toContain('担当チーム');
+    expect(allText).toContain('稼働日数');
+  });
 });
