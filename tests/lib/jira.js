@@ -80,3 +80,30 @@ export function buildTaskBody(item, itemIndex, phaseTasks, release, jc, people) 
     ...extraFields,
   }};
 }
+
+// ─── buildSubTaskBody (wbs-planner.html:2217-2248) ───────────────────────────
+// phaseType: { name, team } object resolved from C.phaseTypes, or null.
+
+export function buildSubTaskBody(task, taskKey, phaseType, jc, people) {
+  const subSummary = `${task.wbsNo} ${task.phaseType} — ${task.itemName}`;
+  let subAccountId = null;
+  if (!task.isBackground && task.assignedPeople.length > 0) {
+    subAccountId = getAccountId(task.assignedPeople[0], people);
+  }
+  const subDesc = [
+    phaseType ? `担当チーム: ${phaseType.team}` : '',
+    `稼働日数: ${task.totalDays}日`,
+    task.isBackground ? '（バックグラウンドタスク）' : '',
+    (task.requireAll && task.assignedPeople.length > 1)
+      ? `全担当者: ${task.assignedPeople.join(', ')}` : '',
+  ].filter(Boolean).join('\n');
+
+  return { fields: {
+    project:     { key: jc.projectKey },
+    summary:     subSummary,
+    issuetype:   { name: 'Sub-task' },
+    parent:      { key: taskKey },
+    description: makeADF(subDesc),
+    ...(subAccountId ? { assignee: { accountId: subAccountId } } : {}),
+  }};
+}

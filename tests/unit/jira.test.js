@@ -9,6 +9,7 @@ import {
   cfPayloadValue,
   getAccountId,
   buildTaskBody,
+  buildSubTaskBody,
 } from '../lib/jira.js';
 
 // ─── makeADF ─────────────────────────────────────────────────────────────────
@@ -224,5 +225,68 @@ describe('buildTaskBody', () => {
     };
     const body = buildTaskBody(baseItem, 0, [basePhaseTask], baseRelease, jc, basePeople);
     expect(body.fields).not.toHaveProperty('customfield_123');
+  });
+});
+
+// ─── buildSubTaskBody ─────────────────────────────────────────────────────────
+
+const baseSubTask = {
+  wbsNo:          '1.1',
+  phaseType:      '開発',
+  itemName:       'Feature A',
+  isBackground:   false,
+  assignedPeople: ['Alice'],
+  requireAll:     false,
+  totalDays:      3,
+};
+const basePhaseTypeObj = { name: '開発', team: '開発チーム' };
+
+describe('buildSubTaskBody', () => {
+  it('includes project, parent, issuetype=Sub-task, summary, description', () => {
+    const body = buildSubTaskBody(baseSubTask, 'PROJ-1', basePhaseTypeObj, baseJC, basePeople);
+    expect(body.fields.project).toEqual({ key: 'PROJ' });
+    expect(body.fields.parent).toEqual({ key: 'PROJ-1' });
+    expect(body.fields.issuetype).toEqual({ name: 'Sub-task' });
+    expect(body.fields.summary).toBe('1.1 開発 — Feature A');
+  });
+
+  it('sets assignee when the assigned person has a jiraUser mapping', () => {
+    const body = buildSubTaskBody(baseSubTask, 'PROJ-1', basePhaseTypeObj, baseJC, basePeople);
+    expect(body.fields.assignee).toEqual({ accountId: 'alice-id' });
+  });
+
+  it('omits assignee for background tasks even when assignedPeople is set', () => {
+    const task = { ...baseSubTask, isBackground: true };
+    const body = buildSubTaskBody(task, 'PROJ-1', basePhaseTypeObj, baseJC, basePeople);
+    expect(body.fields).not.toHaveProperty('assignee');
+  });
+
+  it('includes バックグラウンドタスク in description for background tasks', () => {
+    const task = { ...baseSubTask, isBackground: true };
+    const body = buildSubTaskBody(task, 'PROJ-1', basePhaseTypeObj, baseJC, basePeople);
+    const textNodes = body.fields.description.content[0].content.filter(n => n.type === 'text');
+    const allText   = textNodes.map(n => n.text).join('');
+    expect(allText).toContain('バックグラウンドタスク');
+  });
+
+  it('includes all assignee names in description when requireAll=true and multiple people', () => {
+    const people = [
+      { name: 'Alice', jiraUser: 'alice-id' },
+      { name: 'Bob',   jiraUser: 'bob-id' },
+    ];
+    const task = { ...baseSubTask, requireAll: true, assignedPeople: ['Alice', 'Bob'] };
+    const body = buildSubTaskBody(task, 'PROJ-1', basePhaseTypeObj, baseJC, people);
+    const textNodes = body.fields.description.content[0].content.filter(n => n.type === 'text');
+    const allText   = textNodes.map(n => n.text).join('');
+    expect(allText).toContain('Alice');
+    expect(allText).toContain('Bob');
+  });
+
+  it('omits 全担当者 line when requireAll=false', () => {
+    const task = { ...baseSubTask, requireAll: false, assignedPeople: ['Alice', 'Bob'] };
+    const body = buildSubTaskBody(task, 'PROJ-1', basePhaseTypeObj, baseJC, basePeople);
+    const textNodes = body.fields.description.content[0].content.filter(n => n.type === 'text');
+    const allText   = textNodes.map(n => n.text).join('');
+    expect(allText).not.toContain('全担当者');
   });
 });
