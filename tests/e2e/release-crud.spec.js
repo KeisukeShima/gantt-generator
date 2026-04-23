@@ -210,6 +210,7 @@ test.describe('リリース複製', () => {
     await page.locator('[data-dup-release="0"]').click();
 
     // 「リリース1 のコピー」（index 1）をさらに複製する
+    // data-dup-release は re-render 後に配列インデックスで再割り当てされるため index 1 がコピー
     await page.locator('[data-dup-release="1"]').click();
 
     const names = page.locator('.release-wrap > .li-head > .li-name');
@@ -227,6 +228,8 @@ test.describe('リリース複製', () => {
     // 複製先（index 1）の epicKey が空であることを確認
     await expandRelease(page, 1);
     await expect(page.locator('[data-rf="epicKey"][data-ri="1"]')).toHaveValue('');
+    // re-render 後に accordion が閉じるため、元リリースを再展開してから確認
+    await expandRelease(page, 0);
     // 元リリース（index 0）の epicKey が変わっていないことも確認
     await expect(page.locator('[data-rf="epicKey"][data-ri="0"]')).toHaveValue('PROJ-100');
   });
