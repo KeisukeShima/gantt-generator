@@ -915,7 +915,7 @@ function renderGantt(scheduled) {
         }
         if (t.hasConflict) g += `<text x="${bx+bw+3}" y="${by+bh/2+4}" fill="#EF4444" font-size="9" font-family="sans-serif">⚠</text>`;
       } else {
-        gL += `<text x="60" y="${ry+ROW_H/2+4}" fill="#EF4444" font-size="9" font-family="sans-serif">未スケジュール</text>`;
+        g += `<text x="5" y="${ry+ROW_H/2+4}" fill="#EF4444" font-size="9" font-family="sans-serif">未スケジュール</text>`;
       }
     }
   });
