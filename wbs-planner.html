@@ -1548,6 +1548,19 @@ function wireReleaseEvents(el, pns, ppl) {
     render(); renderReleasesList();
   }));
 
+  // ── リリース複製 ──
+  el.querySelectorAll('[data-dup-release]').forEach(btn => btn.addEventListener('click', () => {
+    const ri = parseInt(btn.dataset.dupRelease);
+    _undoSnapshot = JSON.stringify(C);
+    updateUndoBtn();
+    const copy = JSON.parse(JSON.stringify(C.releases[ri]));
+    copy.id = genId();
+    copy.name = copy.name + ' のコピー';
+    copy.epicKey = '';
+    C.releases.splice(ri + 1, 0, copy);
+    render(); renderReleasesList();
+  }));
+
   // ── アイテム追加 ──
   el.querySelectorAll('[data-add-item-ri]').forEach(btn => btn.addEventListener('click', () => {
     const ri = parseInt(btn.dataset.addItemRi);
