@@ -205,11 +205,15 @@ test.describe('リリース複製', () => {
     await expect(names.nth(2)).toHaveText('リリース2');
   });
 
-  test('複製後のリリース名が「元の名前 のコピー」になっている', async ({ page }) => {
+  test('「のコピー」が付いた名前のリリースを複製すると「のコピー のコピー」になる', async ({ page }) => {
+    // まずリリース1を複製して「リリース1 のコピー」を作る
     await page.locator('[data-dup-release="0"]').click();
 
+    // 「リリース1 のコピー」（index 1）をさらに複製する
+    await page.locator('[data-dup-release="1"]').click();
+
     const names = page.locator('.release-wrap > .li-head > .li-name');
-    await expect(names.nth(1)).toHaveText('リリース1 のコピー');
+    await expect(names.nth(2)).toHaveText('リリース1 のコピー のコピー');
   });
 
   test('複製後の Epic キーが空になっている', async ({ page }) => {
@@ -223,6 +227,8 @@ test.describe('リリース複製', () => {
     // 複製先（index 1）の epicKey が空であることを確認
     await expandRelease(page, 1);
     await expect(page.locator('[data-rf="epicKey"][data-ri="1"]')).toHaveValue('');
+    // 元リリース（index 0）の epicKey が変わっていないことも確認
+    await expect(page.locator('[data-rf="epicKey"][data-ri="0"]')).toHaveValue('PROJ-100');
   });
 
   test('複製後のアイテムが元のリリースのアイテムと同じである', async ({ page }) => {
